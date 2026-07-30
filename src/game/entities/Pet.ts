@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { PET_CONFIG } from '../config/gameplay';
+import type { PetDefinition, PetId } from '../data/pets';
 import { PlayerPathHistory } from '../systems/PlayerPathHistory';
 
 export enum PetState {
@@ -10,21 +11,42 @@ export enum PetState {
 }
 
 export class Pet extends Phaser.GameObjects.Sprite {
-  public readonly petId = 'prototype-dog';
-  public readonly incomePerSecond = PET_CONFIG.prototypeIncomePerSecond;
+  public readonly petId: PetId;
+  public readonly displayName: string;
+  public readonly incomePerSecond: number;
 
   private readonly shadow: Phaser.GameObjects.Ellipse;
+  private readonly idlePhase: number;
   private petState = PetState.AtNpcBase;
   private idleAnchor: Phaser.Math.Vector2;
   private lastBreadcrumbSequence: number | null = null;
 
-  public constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'dog');
+  public constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    definition: PetDefinition,
+  ) {
+    super(scene, x, y, definition.visualKey);
 
+    this.petId = definition.id as PetId;
+    this.displayName = definition.displayName;
+    this.incomePerSecond = definition.incomePerSecond;
+    this.idlePhase = definition.id === 'cat' ? Math.PI * 0.65 : 0;
     this.idleAnchor = new Phaser.Math.Vector2(x, y);
-    this.shadow = scene.add.ellipse(x, y + 17, 43, 14, 0x18324a, 0.24);
+    this.shadow = scene.add.ellipse(
+      x,
+      y + 17,
+      definition.id === 'cat' ? 38 : 43,
+      14,
+      0x18324a,
+      0.24,
+    );
     scene.add.existing(this);
     this.setOrigin(0.5, 0.7);
+    if (definition.id === 'cat') {
+      this.setScale(0.94);
+    }
     this.updateDepth();
   }
 
@@ -43,7 +65,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.lastBreadcrumbSequence = null;
     this.idleAnchor = position.clone();
     this.setPosition(position.x, position.y);
-    this.setScale(1);
+    this.setScale(this.petId === 'cat' ? 0.94 : 1);
     this.clearTint();
     this.updateDepth();
   }
@@ -53,8 +75,8 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.lastBreadcrumbSequence = null;
     this.idleAnchor = position.clone();
     this.setPosition(position.x, position.y);
-    this.setScale(1.06);
-    this.setTint(0xfff3a6);
+    this.setScale(this.petId === 'cat' ? 1 : 1.06);
+    this.setTint(this.petId === 'cat' ? 0xf1ddff : 0xfff3a6);
     this.updateDepth();
   }
 
@@ -136,9 +158,11 @@ export class Pet extends Phaser.GameObjects.Sprite {
   }
 
   private updateIdle(time: number): void {
-    const bob = Math.sin(time / 280) * 3;
-    this.setPosition(this.idleAnchor.x, this.idleAnchor.y + bob);
-    this.setRotation(Math.sin(time / 430) * 0.05);
+    const catMotion = this.petId === 'cat';
+    const bob = Math.sin(time / (catMotion ? 220 : 280) + this.idlePhase) * 3;
+    const sway = catMotion ? Math.sin(time / 520 + this.idlePhase) * 4 : 0;
+    this.setPosition(this.idleAnchor.x + sway, this.idleAnchor.y + bob);
+    this.setRotation(Math.sin(time / (catMotion ? 320 : 430) + this.idlePhase) * 0.05);
   }
 
   private updateDepth(): void {

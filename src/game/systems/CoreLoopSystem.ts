@@ -1,183 +1,289 @@
 import Phaser from 'phaser';
 
-import { CHASE_CONFIG, PET_CONFIG } from '../config/gameplay';
-import { OwnerNpc } from '../entities/OwnerNpc';
-import { Pet, PetState } from '../entities/Pet';
+import { PET_CONFIG } from '../config/gameplay';
 import { Player } from '../entities/Player';
 import { InputController } from '../input/InputController';
 import { Hud } from '../ui/Hud';
+import type { ZoneGate } from '../world/ZoneGate';
 import { BaseSystem } from './BaseSystem';
-import { ChaseSystem } from './ChaseSystem';
 import { EconomySystem } from './EconomySystem';
+import { PetEncounter } from './PetEncounter';
 import { PlayerPathHistory } from './PlayerPathHistory';
+import { ProgressionStage, ProgressionSystem } from './ProgressionSystem';
+import { GateUnlockResult, ZoneGateSystem } from './ZoneGateSystem';
 
 export enum CoreLoopPhase {
-  SeekPet = 'SEEK_PET',
+  Exploring = 'EXPLORING',
   Escape = 'ESCAPE',
-  Income = 'INCOME',
+}
+
+interface NavigationMarkers {
+  park: Phaser.GameObjects.Container;
+  cat: Phaser.GameObjects.Container;
+  centralHub: Phaser.GameObjects.Container;
 }
 
 interface CoreLoopDependencies {
   scene: Phaser.Scene;
   player: Player;
-  pet: Pet;
-  owner: OwnerNpc;
-  petHome: Phaser.Math.Vector2;
+  encounters: readonly PetEncounter[];
   baseSystem: BaseSystem;
-  chaseSystem: ChaseSystem;
+  gateSystem: ZoneGateSystem;
   economy: EconomySystem;
+  progression: ProgressionSystem;
   pathHistory: PlayerPathHistory;
   hud: Hud;
   input: InputController;
-  parkPreviewMarker: Phaser.GameObjects.Container;
+  navigationMarkers: NavigationMarkers;
+  onProgressChanged: () => void;
 }
 
 export class CoreLoopSystem {
   private readonly scene: Phaser.Scene;
   private readonly player: Player;
-  private readonly pet: Pet;
-  private readonly owner: OwnerNpc;
-  private readonly petHome: Phaser.Math.Vector2;
+  private readonly encounters: readonly PetEncounter[];
   private readonly baseSystem: BaseSystem;
-  private readonly chaseSystem: ChaseSystem;
+  private readonly gateSystem: ZoneGateSystem;
   private readonly economy: EconomySystem;
+  private readonly progression: ProgressionSystem;
   private readonly pathHistory: PlayerPathHistory;
   private readonly hud: Hud;
   private readonly input: InputController;
-  private readonly parkPreviewMarker: Phaser.GameObjects.Container;
+  private readonly navigationMarkers: NavigationMarkers;
+  private readonly onProgressChanged: () => void;
 
-  private phase = CoreLoopPhase.SeekPet;
+  private activeEncounter: PetEncounter | null = null;
   private retryAvailableAt = 0;
-  private objective = 'Укради питомца с чужой базы';
+  private objective = 'Укради Собаку';
 
   public constructor(dependencies: CoreLoopDependencies) {
     this.scene = dependencies.scene;
     this.player = dependencies.player;
-    this.pet = dependencies.pet;
-    this.owner = dependencies.owner;
-    this.petHome = dependencies.petHome;
+    this.encounters = dependencies.encounters;
     this.baseSystem = dependencies.baseSystem;
-    this.chaseSystem = dependencies.chaseSystem;
+    this.gateSystem = dependencies.gateSystem;
     this.economy = dependencies.economy;
+    this.progression = dependencies.progression;
     this.pathHistory = dependencies.pathHistory;
     this.hud = dependencies.hud;
     this.input = dependencies.input;
-    this.parkPreviewMarker = dependencies.parkPreviewMarker;
+    this.navigationMarkers = dependencies.navigationMarkers;
+    this.onProgressChanged = dependencies.onProgressChanged;
   }
 
   public update(time: number, delta: number, interactPressed: boolean): void {
-    this.pet.updatePet(time, delta, this.player, this.pathHistory);
-    this.chaseSystem.update(this.player);
-
-    if (this.phase === CoreLoopPhase.SeekPet) {
-      this.updateSeeking(time, interactPressed);
-    } else if (this.phase === CoreLoopPhase.Escape) {
-      this.updateEscape(time);
-    } else {
-      this.objective =
-        this.economy.getDisplayedMoney() >= 3
-          ? 'Следующая зона: PARK — будущий этап'
-          : 'Питомец приносит деньги · Следующая зона: PARK';
-      this.setInteractionVisible(false);
+    for (const encounter of this.encounters) {
+      encounter.update(time, delta, this.player, this.pathHistory);
     }
 
+    this.progression.updateForMoney(this.economy.getMoney());
+
+    if (this.activeEncounter === null) {
+      this.updateExploration(time, interactPressed);
+    } else {
+      this.updateEscape(time);
+    }
+
+    this.updateNavigationMarkers();
     this.hud.setObjective(this.objective);
   }
 
   public getPhase(): CoreLoopPhase {
-    return this.phase;
+    return this.activeEncounter === null
+      ? CoreLoopPhase.Exploring
+      : CoreLoopPhase.Escape;
   }
 
-  private updateSeeking(time: number, interactPressed: boolean): void {
-    const distance = Phaser.Math.Distance.Between(
-      this.player.x,
-      this.player.y,
-      this.pet.x,
-      this.pet.y,
+  public getActiveEncounterId(): string {
+    return this.activeEncounter?.definition.id ?? 'none';
+  }
+
+  private updateExploration(time: number, interactPressed: boolean): void {
+    const nearbyGate = this.gateSystem.findNearbyLockedGate(this.player);
+    if (nearbyGate !== null) {
+      this.objective = this.economy.canAfford(nearbyGate.definition.cost)
+        ? `Открой ${nearbyGate.definition.displayName}`
+        : `Нужно ${nearbyGate.definition.cost} монет`;
+      this.setInteraction(
+        true,
+        'ОТКРЫТЬ',
+        `E — ОТКРЫТЬ ${nearbyGate.definition.displayName} ЗА ${nearbyGate.definition.cost}`,
+        `ОТКРЫТЬ ${nearbyGate.definition.displayName}`,
+      );
+
+      if (interactPressed) {
+        this.tryUnlockGate(nearbyGate);
+      }
+      return;
+    }
+
+    const nearbyEncounter = this.encounters.find(
+      (encounter) =>
+        encounter.isAvailable(this.progression) &&
+        encounter.isPlayerInInteractionRange(this.player),
     );
-    const canSteal =
-      this.pet.getState() === PetState.AtNpcBase &&
-      this.chaseSystem.isOwnerReady() &&
-      time >= this.retryAvailableAt &&
-      distance <= PET_CONFIG.interactionRadius;
 
-    if (canSteal) {
+    if (nearbyEncounter !== undefined) {
+      if (!nearbyEncounter.chase.isOwnerReady() || time < this.retryAvailableAt) {
+        this.objective = 'Хозяин возвращается · приготовься к новой попытке';
+        this.setInteraction(false);
+        return;
+      }
+
       this.objective = this.input.isMobileMode
-        ? 'Нажми «УКРАСТЬ»'
-        : 'Нажми E, чтобы украсть Собаку';
-    } else if (!this.chaseSystem.isOwnerReady()) {
-      this.objective = 'Хозяин возвращается · приготовься к новой попытке';
-    } else {
-      this.objective = 'Укради питомца с чужой базы';
+        ? `Нажми «УКРАСТЬ» · ${nearbyEncounter.pet.displayName}`
+        : `Нажми E, чтобы украсть ${nearbyEncounter.pet.displayName}`;
+      this.setInteraction(
+        true,
+        'УКРАСТЬ',
+        `E — УКРАСТЬ ${nearbyEncounter.pet.displayName.toUpperCase()}`,
+        'УКРАСТЬ',
+      );
+
+      if (interactPressed) {
+        this.startTheft(nearbyEncounter);
+      }
+      return;
     }
 
-    this.setInteractionVisible(canSteal);
-
-    if (canSteal && interactPressed) {
-      this.startTheft();
-    }
+    this.objective = this.progression.getObjective(this.economy.getMoney());
+    this.setInteraction(false);
   }
 
   private updateEscape(time: number): void {
-    this.setInteractionVisible(false);
-    this.objective = 'Убегай! Вернись в зелёную зону своей базы';
+    const encounter = this.activeEncounter;
+    if (encounter === null) {
+      return;
+    }
+
+    this.setInteraction(false);
+    this.objective = `Убегай! Верни ${encounter.pet.displayName} на базу`;
 
     if (
       this.baseSystem.canDeliver(
         this.player,
-        this.pet,
+        encounter.pet,
         PET_CONFIG.deliveryDistance,
       )
     ) {
-      this.completeDelivery();
+      this.completeDelivery(encounter);
       return;
     }
 
-    if (time >= this.retryAvailableAt && this.chaseSystem.hasCaught(this.player)) {
-      this.failTheft(time);
+    if (time >= this.retryAvailableAt && encounter.chase.hasCaught(this.player)) {
+      this.failTheft(encounter, time);
     }
   }
 
-  private startTheft(): void {
-    this.phase = CoreLoopPhase.Escape;
+  private startTheft(encounter: PetEncounter): void {
+    this.activeEncounter = encounter;
     this.pathHistory.reset(this.player);
-    this.pet.startFollowing();
-    this.chaseSystem.start();
-    this.retryAvailableAt = this.scene.time.now + CHASE_CONFIG.theftHeadStartMs;
-    this.hud.showToast('ПИТОМЕЦ УКРАДЕН! БЕГИ ДОМОЙ!', 1500);
-    this.createTheftFlash();
-    this.setInteractionVisible(false);
+    encounter.startTheft();
+    this.progression.startTheft(encounter.pet.petId, this.economy.getMoney());
+    this.retryAvailableAt =
+      this.scene.time.now + encounter.definition.chase.theftHeadStartMs;
+    this.hud.showToast(
+      `${encounter.pet.displayName.toUpperCase()} УКРАДЕН! БЕГИ ДОМОЙ!`,
+      1500,
+    );
+    this.createTheftFlash(encounter);
+    this.setInteraction(false);
   }
 
-  private failTheft(time: number): void {
-    this.phase = CoreLoopPhase.SeekPet;
-    this.retryAvailableAt = time + CHASE_CONFIG.failureGraceMs;
-    this.pet.returnToNpcBase(this.petHome);
-    this.chaseSystem.stop();
-    this.player.applyCaughtFeedback(new Phaser.Math.Vector2(this.owner.x, this.owner.y));
-    this.hud.showToast('ПОЙМАЛИ! Питомец вернулся домой', 1900);
+  private failTheft(encounter: PetEncounter, time: number): void {
+    this.retryAvailableAt = time + encounter.definition.chase.failureGraceMs;
+    encounter.failTheft();
+    this.progression.cancelTheft(this.economy.getMoney());
+    this.activeEncounter = null;
+    this.player.applyCaughtFeedback(
+      new Phaser.Math.Vector2(encounter.owner.x, encounter.owner.y),
+    );
+    this.hud.showToast(
+      `ПОЙМАЛИ! ${encounter.pet.displayName} вернулся домой`,
+      1900,
+    );
   }
 
-  private completeDelivery(): void {
-    this.phase = CoreLoopPhase.Income;
-    this.pet.placeAtPlayerBase(this.baseSystem.getPetSlot());
-    this.chaseSystem.stop();
-    this.economy.addIncomeSource(this.pet.petId, this.pet.incomePerSecond);
-    this.parkPreviewMarker.setVisible(true);
-    this.hud.showToast('Питомец спасён… ну почти 😄', 2300);
-    this.createDeliveryCelebration();
+  private completeDelivery(encounter: PetEncounter): void {
+    encounter.completeDelivery(this.baseSystem.getPetSlot(encounter.pet.petId));
+    this.economy.addIncomeSource(
+      encounter.pet.petId,
+      encounter.pet.incomePerSecond,
+    );
+    this.progression.deliverPet(
+      encounter.pet.petId,
+      this.economy.getMoney(),
+    );
+    this.activeEncounter = null;
+    this.onProgressChanged();
+
+    if (encounter.pet.petId === 'cat') {
+      this.hud.showToast('PARK ЗАВЕРШЁН! Следующая цель: CENTRAL HUB', 2600);
+    } else {
+      this.hud.showToast('Питомец спасён… ну почти 😄', 2300);
+    }
+    this.createDeliveryCelebration(encounter);
   }
 
-  private setInteractionVisible(visible: boolean): void {
-    this.input.setInteractionVisible(visible);
-    this.hud.setInteractionPrompt(visible, this.input.isMobileMode);
+  private tryUnlockGate(gate: ZoneGate): void {
+    const result = this.gateSystem.tryUnlock(gate);
+
+    if (result === GateUnlockResult.InsufficientFunds) {
+      this.hud.showToast(`Нужно ${gate.definition.cost} монет`, 1400);
+      return;
+    }
+
+    if (result === GateUnlockResult.Unlocked) {
+      this.hud.showToast('PARK ОТКРЫТ! Переходи мост', 2100);
+      this.onProgressChanged();
+      this.setInteraction(false);
+    }
   }
 
-  private createTheftFlash(): void {
+  private setInteraction(
+    visible: boolean,
+    mobileLabel = 'УКРАСТЬ',
+    desktopPrompt = '',
+    mobilePrompt = '',
+  ): void {
+    this.input.setInteractionVisible(visible, mobileLabel);
+    this.hud.setInteractionPrompt(
+      visible,
+      this.input.isMobileMode ? mobilePrompt : desktopPrompt,
+    );
+  }
+
+  private updateNavigationMarkers(): void {
+    const stage = this.progression.getStage();
+    const catEncounter = this.encounters.find(
+      (encounter) => encounter.pet.petId === 'cat',
+    );
+    const closeToCat =
+      catEncounter !== undefined &&
+      Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        catEncounter.pet.x,
+        catEncounter.pet.y,
+      ) < 220;
+
+    this.navigationMarkers.park.setVisible(
+      stage === ProgressionStage.EarnForPark ||
+        stage === ProgressionStage.UnlockPark,
+    );
+    this.navigationMarkers.cat.setVisible(
+      stage === ProgressionStage.StealParkPet && !closeToCat,
+    );
+    this.navigationMarkers.centralHub.setVisible(
+      stage === ProgressionStage.ParkComplete,
+    );
+  }
+
+  private createTheftFlash(encounter: PetEncounter): void {
     const ring = this.scene.add
-      .circle(this.pet.x, this.pet.y, 28, 0xffe575, 0.12)
+      .circle(encounter.pet.x, encounter.pet.y, 28, 0xffe575, 0.12)
       .setStrokeStyle(8, 0xffd23f, 0.95)
-      .setDepth(this.pet.y + 2);
+      .setDepth(encounter.pet.y + 2);
 
     this.scene.tweens.add({
       targets: ring,
@@ -188,19 +294,24 @@ export class CoreLoopSystem {
     });
   }
 
-  private createDeliveryCelebration(): void {
+  private createDeliveryCelebration(encounter: PetEncounter): void {
     const colors = [0xffd23f, 0x6ce39a, 0x72c7ff, 0xff85b3];
 
     for (let index = 0; index < 12; index += 1) {
       const angle = (Math.PI * 2 * index) / 12;
       const particle = this.scene.add
-        .circle(this.pet.x, this.pet.y, 7, colors[index % colors.length] ?? 0xffffff)
-        .setDepth(this.pet.y + 4);
+        .circle(
+          encounter.pet.x,
+          encounter.pet.y,
+          7,
+          colors[index % colors.length] ?? 0xffffff,
+        )
+        .setDepth(encounter.pet.y + 4);
 
       this.scene.tweens.add({
         targets: particle,
-        x: this.pet.x + Math.cos(angle) * 100,
-        y: this.pet.y + Math.sin(angle) * 100,
+        x: encounter.pet.x + Math.cos(angle) * 100,
+        y: encounter.pet.y + Math.sin(angle) * 100,
         alpha: 0,
         scale: 0.3,
         duration: 620,

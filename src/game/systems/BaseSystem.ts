@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 export class BaseSystem {
   public constructor(
     private readonly deliveryZone: Phaser.Geom.Rectangle,
-    private readonly petSlot: Phaser.Math.Vector2,
+    private readonly petSlots: ReadonlyMap<string, Phaser.Math.Vector2>,
   ) {}
 
   public canDeliver(
@@ -22,7 +22,11 @@ export class BaseSystem {
     );
   }
 
-  public getPetSlot(): Phaser.Math.Vector2 {
-    return this.petSlot;
+  public getPetSlot(petId: string): Phaser.Math.Vector2 {
+    const slot = this.petSlots.get(petId);
+    if (slot === undefined) {
+      throw new Error(`No player-base slot configured for pet "${petId}".`);
+    }
+    return slot;
   }
 }

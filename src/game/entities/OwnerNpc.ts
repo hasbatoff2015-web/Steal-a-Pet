@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { CHASE_CONFIG } from '../config/gameplay';
+import type { ChaseParameters } from '../data/encounters';
 
 export enum OwnerState {
   Idle = 'IDLE',
@@ -13,8 +13,13 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
   private readonly home: Phaser.Math.Vector2;
   private ownerState = OwnerState.Idle;
 
-  public constructor(scene: Phaser.Scene, home: Phaser.Math.Vector2) {
-    super(scene, home.x, home.y, 'owner');
+  public constructor(
+    scene: Phaser.Scene,
+    home: Phaser.Math.Vector2,
+    visualKey: string,
+    private readonly chaseParameters: ChaseParameters,
+  ) {
+    super(scene, home.x, home.y, visualKey);
 
     this.home = home.clone();
     this.shadow = scene.add.ellipse(home.x, home.y + 22, 42, 17, 0x321f25, 0.28);
@@ -45,7 +50,7 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
 
   public updateNpc(player: Phaser.GameObjects.GameObject & Phaser.Types.Math.Vector2Like): void {
     if (this.ownerState === OwnerState.Chasing) {
-      this.scene.physics.moveToObject(this, player, CHASE_CONFIG.npcSpeed);
+      this.scene.physics.moveToObject(this, player, this.chaseParameters.npcSpeed);
     } else if (this.ownerState === OwnerState.Returning) {
       const distance = Phaser.Math.Distance.Between(this.x, this.y, this.home.x, this.home.y);
 
@@ -54,7 +59,12 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
         this.setVelocity(0, 0);
         this.ownerState = OwnerState.Idle;
       } else {
-        this.scene.physics.moveTo(this, this.home.x, this.home.y, CHASE_CONFIG.returnSpeed);
+        this.scene.physics.moveTo(
+          this,
+          this.home.x,
+          this.home.y,
+          this.chaseParameters.returnSpeed,
+        );
       }
     } else {
       this.setVelocity(0, 0);

@@ -1,11 +1,14 @@
 import Phaser from 'phaser';
 
-import { CHASE_CONFIG } from '../config/gameplay';
+import type { ChaseParameters } from '../data/encounters';
 import { OwnerNpc, OwnerState } from '../entities/OwnerNpc';
 import { Player } from '../entities/Player';
 
 export class ChaseSystem {
-  public constructor(private readonly owner: OwnerNpc) {}
+  public constructor(
+    private readonly owner: OwnerNpc,
+    private readonly parameters: ChaseParameters,
+  ) {}
 
   public start(): void {
     this.owner.startChase();
@@ -26,7 +29,7 @@ export class ChaseSystem {
 
     return (
       Phaser.Math.Distance.Between(this.owner.x, this.owner.y, player.x, player.y) <=
-      CHASE_CONFIG.catchDistance
+      this.parameters.catchDistance
     );
   }
 

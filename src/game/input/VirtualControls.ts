@@ -112,8 +112,9 @@ export class VirtualControls {
     return requested;
   }
 
-  public setInteractionVisible(visible: boolean): void {
+  public setInteractionVisible(visible: boolean, label = 'УКРАСТЬ'): void {
     const shouldShow = visible && this.isMobileMode;
+    this.interactLabel.setText(label);
     this.interactButton.setVisible(shouldShow);
     this.interactLabel.setVisible(shouldShow);
   }

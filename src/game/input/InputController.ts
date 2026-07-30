@@ -88,8 +88,8 @@ export class InputController {
     };
   }
 
-  public setInteractionVisible(visible: boolean): void {
-    this.virtualControls.setInteractionVisible(visible);
+  public setInteractionVisible(visible: boolean, label?: string): void {
+    this.virtualControls.setInteractionVisible(visible, label);
   }
 
   public setDashReadyRatio(ratio: number): void {

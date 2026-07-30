@@ -1,39 +1,44 @@
 import Phaser from 'phaser';
 
-import { OwnerNpc } from '../entities/OwnerNpc';
-import { Player } from '../entities/Player';
+import type { PetId } from '../data/pets';
 
 interface DeveloperActions {
   interact: () => void;
   dash: () => void;
+  toPet: (petId: PetId) => void;
+  toHome: () => void;
+  toParkGate: () => void;
+  catchActive: () => void;
+  addMoney: (amount: number) => void;
+  resetSave: () => void;
   getSnapshot: () => string;
 }
 
 export class DeveloperTools {
-  private readonly toPet: Phaser.Input.Keyboard.Key;
+  private readonly toDog: Phaser.Input.Keyboard.Key;
+  private readonly toCat: Phaser.Input.Keyboard.Key;
   private readonly toDelivery: Phaser.Input.Keyboard.Key;
-  private readonly ownerToPlayer: Phaser.Input.Keyboard.Key;
+  private readonly toGate: Phaser.Input.Keyboard.Key;
+  private readonly catchActive: Phaser.Input.Keyboard.Key;
+  private readonly resetSave: Phaser.Input.Keyboard.Key;
   private readonly panel: HTMLDivElement;
   private readonly stateOutput: HTMLOutputElement;
-  private readonly getSnapshot: () => string;
 
   public constructor(
     scene: Phaser.Scene,
-    private readonly player: Player,
-    private readonly owner: OwnerNpc,
-    private readonly petHome: Phaser.Math.Vector2,
-    private readonly deliveryPoint: Phaser.Math.Vector2,
-    actions: DeveloperActions,
+    private readonly actions: DeveloperActions,
   ) {
     const keyboard = scene.input.keyboard;
     if (keyboard === null) {
       throw new Error('Keyboard input plugin is unavailable.');
     }
 
-    this.toPet = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+    this.toDog = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+    this.toCat = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.O);
     this.toDelivery = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
-    this.ownerToPlayer = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
-    this.getSnapshot = actions.getSnapshot;
+    this.toGate = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
+    this.catchActive = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this.resetSave = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F4);
 
     this.panel = document.createElement('div');
     this.panel.dataset.testid = 'dev-panel';
@@ -43,9 +48,12 @@ export class DeveloperTools {
       'bottom:8px',
       'transform:translateX(-50%)',
       'display:flex',
-      'gap:6px',
+      'flex-wrap:wrap',
+      'justify-content:center',
+      'gap:5px',
+      'width:min(980px,calc(100% - 12px))',
       'z-index:9999',
-      'font:700 12px Arial,sans-serif',
+      'font:700 11px Arial,sans-serif',
     ].join(';');
 
     this.stateOutput = document.createElement('output');
@@ -55,34 +63,46 @@ export class DeveloperTools {
       'color:#fff',
       'padding:7px 9px',
       'border-radius:5px',
-      'min-width:250px',
+      'flex:1 1 100%',
+      'text-align:center',
     ].join(';');
 
     this.panel.append(
       this.stateOutput,
-      this.createButton('К ПИТОМЦУ', 'dev-to-pet', () => this.teleportToPet()),
-      this.createButton('УКРАСТЬ', 'dev-interact', actions.interact),
+      this.createButton('К СОБАКЕ', 'dev-to-dog', () => actions.toPet('dog')),
+      this.createButton('К КОТУ', 'dev-to-cat', () => actions.toPet('cat')),
+      this.createButton('К PARK', 'dev-to-gate', actions.toParkGate),
+      this.createButton('+25', 'dev-add-money', () => actions.addMoney(25)),
+      this.createButton('ДЕЙСТВИЕ', 'dev-interact', actions.interact),
       this.createButton('РЫВОК', 'dev-dash', actions.dash),
-      this.createButton('ДОМОЙ', 'dev-home', () => this.teleportToDelivery()),
-      this.createButton('ПОЙМАТЬ', 'dev-catch', () => this.teleportOwnerToPlayer()),
+      this.createButton('ДОМОЙ', 'dev-home', actions.toHome),
+      this.createButton('ПОЙМАТЬ', 'dev-catch', actions.catchActive),
+      this.createButton('RESET SAVE', 'dev-reset-save', actions.resetSave),
     );
 
     document.body.append(this.panel);
   }
 
   public update(): void {
-    this.stateOutput.textContent = this.getSnapshot();
+    this.stateOutput.textContent = this.actions.getSnapshot();
 
-    if (Phaser.Input.Keyboard.JustDown(this.toPet)) {
-      this.teleportToPet();
+    if (Phaser.Input.Keyboard.JustDown(this.toDog)) {
+      this.actions.toPet('dog');
     }
-
+    if (Phaser.Input.Keyboard.JustDown(this.toCat)) {
+      this.actions.toPet('cat');
+    }
     if (Phaser.Input.Keyboard.JustDown(this.toDelivery)) {
-      this.teleportToDelivery();
+      this.actions.toHome();
     }
-
-    if (Phaser.Input.Keyboard.JustDown(this.ownerToPlayer)) {
-      this.teleportOwnerToPlayer();
+    if (Phaser.Input.Keyboard.JustDown(this.toGate)) {
+      this.actions.toParkGate();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.catchActive)) {
+      this.actions.catchActive();
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.resetSave)) {
+      this.actions.resetSave();
     }
   }
 
@@ -104,22 +124,10 @@ export class DeveloperTools {
       'border-radius:5px',
       'background:#60339c',
       'color:#fff',
-      'padding:7px 9px',
+      'padding:6px 8px',
       'cursor:pointer',
     ].join(';');
     button.addEventListener('click', action);
     return button;
-  }
-
-  private teleportToPet(): void {
-    this.player.setPosition(this.petHome.x - 70, this.petHome.y);
-  }
-
-  private teleportToDelivery(): void {
-    this.player.setPosition(this.deliveryPoint.x, this.deliveryPoint.y);
-  }
-
-  private teleportOwnerToPlayer(): void {
-    this.owner.setPosition(this.player.x, this.player.y);
   }
 }

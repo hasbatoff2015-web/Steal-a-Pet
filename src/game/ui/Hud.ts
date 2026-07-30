@@ -130,8 +130,8 @@ export class Hud {
     this.objectiveText.setText(`ЦЕЛЬ: ${objective}`);
   }
 
-  public setInteractionPrompt(visible: boolean, mobileMode: boolean): void {
-    this.promptText.setText(mobileMode ? 'Нажми «УКРАСТЬ»' : 'E — УКРАСТЬ');
+  public setInteractionPrompt(visible: boolean, text: string): void {
+    this.promptText.setText(text);
     this.promptText.setVisible(visible);
   }
 

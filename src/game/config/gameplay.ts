@@ -22,15 +22,6 @@ export const PET_CONFIG = {
   breadcrumbReachDistance: 10,
   breadcrumbMaxPoints: 160,
   deliveryDistance: 190,
-  prototypeIncomePerSecond: 1,
-} as const;
-
-export const CHASE_CONFIG = {
-  npcSpeed: 226,
-  returnSpeed: 185,
-  catchDistance: 45,
-  theftHeadStartMs: 900,
-  failureGraceMs: 1600,
 } as const;
 
 export const DEPTH = {

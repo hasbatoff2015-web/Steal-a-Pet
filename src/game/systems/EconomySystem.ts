@@ -1,6 +1,10 @@
 export class EconomySystem {
   private readonly incomeSources = new Map<string, number>();
-  private money = 0;
+  private money: number;
+
+  public constructor(initialMoney = 0) {
+    this.money = Math.max(0, initialMoney);
+  }
 
   public update(deltaMs: number): void {
     if (this.incomeSources.size === 0) {
@@ -12,6 +16,25 @@ export class EconomySystem {
 
   public addIncomeSource(id: string, incomePerSecond: number): void {
     this.incomeSources.set(id, incomePerSecond);
+  }
+
+  public canAfford(amount: number): boolean {
+    return amount >= 0 && this.money >= amount;
+  }
+
+  public spend(amount: number): boolean {
+    if (!this.canAfford(amount)) {
+      return false;
+    }
+
+    this.money -= amount;
+    return true;
+  }
+
+  public addMoney(amount: number): void {
+    if (amount > 0) {
+      this.money += amount;
+    }
   }
 
   public getMoney(): number {

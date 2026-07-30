@@ -2,10 +2,15 @@ import Phaser from 'phaser';
 
 import { DEPTH, WORLD } from '../config/gameplay';
 import { PROTOTYPE_LAYOUT, type PrototypeWorldLayout } from '../data/worldLayout';
+import { PARK_GATE_DEFINITION } from '../data/zones';
+import { ZoneGate } from './ZoneGate';
 
 export interface WorldBuildResult extends PrototypeWorldLayout {
   obstacles: Phaser.Physics.Arcade.StaticGroup;
-  parkPreviewMarker: Phaser.GameObjects.Container;
+  parkGate: ZoneGate;
+  parkNavigationMarkerView: Phaser.GameObjects.Container;
+  catNavigationMarkerView: Phaser.GameObjects.Container;
+  centralHubMarkerView: Phaser.GameObjects.Container;
 }
 
 interface BuildingOptions {
@@ -25,17 +30,31 @@ export class WorldBuilder {
     this.obstacles = scene.physics.add.staticGroup();
   }
 
-  public build(): WorldBuildResult {
+  public build(parkUnlocked: boolean): WorldBuildResult {
     this.scene.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
 
     this.drawZoneGrounds();
     this.drawRoads();
     this.drawRiverAndBridge();
+    const parkGate = this.createParkGate();
+    if (parkUnlocked) {
+      parkGate.unlock(false);
+    }
     this.drawPlayerBase();
     this.drawNpcBase();
+    this.drawParkEnvironment();
+    this.drawParkEncounter();
+    this.drawParkBoundary();
     this.drawFutureDistricts();
     this.drawEnvironment();
     this.drawZoneLabels();
+
+    const playerPetSlots = new Map<string, Phaser.Math.Vector2>(
+      Object.entries(PROTOTYPE_LAYOUT.playerPetSlots).map(([petId, point]) => [
+        petId,
+        new Phaser.Math.Vector2(point.x, point.y),
+      ]),
+    );
 
     return {
       obstacles: this.obstacles,
@@ -49,23 +68,43 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.playerDeliveryZone.width,
         PROTOTYPE_LAYOUT.playerDeliveryZone.height,
       ),
-      playerPetSlot: new Phaser.Math.Vector2(
-        PROTOTYPE_LAYOUT.playerPetSlot.x,
-        PROTOTYPE_LAYOUT.playerPetSlot.y,
+      playerPetSlots,
+      parkGatePosition: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.parkGatePosition.x,
+        PROTOTYPE_LAYOUT.parkGatePosition.y,
       ),
-      npcHome: new Phaser.Math.Vector2(
-        PROTOTYPE_LAYOUT.npcHome.x,
-        PROTOTYPE_LAYOUT.npcHome.y,
+      parkGateInteractionPoint: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.parkGateInteractionPoint.x,
+        PROTOTYPE_LAYOUT.parkGateInteractionPoint.y,
       ),
-      petHome: new Phaser.Math.Vector2(
-        PROTOTYPE_LAYOUT.petHome.x,
-        PROTOTYPE_LAYOUT.petHome.y,
+      parkNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.parkNavigationMarker.x,
+        PROTOTYPE_LAYOUT.parkNavigationMarker.y,
       ),
-      parkMarker: new Phaser.Math.Vector2(
-        PROTOTYPE_LAYOUT.parkMarker.x,
-        PROTOTYPE_LAYOUT.parkMarker.y,
+      catNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.catNavigationMarker.x,
+        PROTOTYPE_LAYOUT.catNavigationMarker.y,
       ),
-      parkPreviewMarker: this.createParkPreviewMarker(),
+      centralHubMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.centralHubMarker.x,
+        PROTOTYPE_LAYOUT.centralHubMarker.y,
+      ),
+      parkGate,
+      parkNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.parkNavigationMarker,
+        'PARK · 25 МОНЕТ',
+        0xffd43b,
+      ),
+      catNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.catNavigationMarker,
+        'ЦЕЛЬ: КОТ',
+        0xc997ff,
+      ),
+      centralHubMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.centralHubMarker,
+        'СЛЕДУЮЩАЯ ЦЕЛЬ:\nCENTRAL HUB →',
+        0x71d8ff,
+      ),
     };
   }
 
@@ -195,6 +234,48 @@ export class WorldBuilder {
       .setDepth(DEPTH.groundLabels);
   }
 
+  private createParkGate(): ZoneGate {
+    const { x, y } = PROTOTYPE_LAYOUT.parkGatePosition;
+    const leftPost = this.scene.add
+      .rectangle(x - 102, y, 28, 82, 0x315f4c)
+      .setStrokeStyle(4, 0xe8ffdd, 0.9)
+      .setDepth(y + 2);
+    const rightPost = this.scene.add
+      .rectangle(x + 102, y, 28, 82, 0x315f4c)
+      .setStrokeStyle(4, 0xe8ffdd, 0.9)
+      .setDepth(y + 2);
+    const crossbar = this.scene.add
+      .rectangle(x, y, 214, 28, 0xe75555)
+      .setStrokeStyle(4, 0xffffff, 0.9)
+      .setDepth(y + 3);
+
+    const statusLabel = this.scene.add
+      .text(x, y - 67, 'PARK\n25 МОНЕТ', {
+        align: 'center',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: '#5a241e',
+        backgroundColor: '#fff4cdeb',
+        padding: { x: 12, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setDepth(y + 4);
+
+    const barrier = this.addInvisibleObstacle(x - 120, y - 20, 240, 40);
+    return new ZoneGate(
+      this.scene,
+      PARK_GATE_DEFINITION,
+      new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.parkGateInteractionPoint.x,
+        PROTOTYPE_LAYOUT.parkGateInteractionPoint.y,
+      ),
+      barrier,
+      [leftPost, rightPost, crossbar],
+      statusLabel,
+    );
+  }
+
   private drawPlayerBase(): void {
     const yard = this.scene.add.graphics().setDepth(DEPTH.ground + 4);
     yard.fillStyle(0xdff4af, 0.92);
@@ -261,6 +342,124 @@ export class WorldBuilder {
       .setDepth(DEPTH.groundLabels);
   }
 
+  private drawParkEnvironment(): void {
+    const paths = this.scene.add.graphics().setDepth(DEPTH.ground + 4);
+    paths.lineStyle(70, 0xc6a879, 1);
+    paths.strokePoints(
+      [
+        new Phaser.Math.Vector2(900, 875),
+        new Phaser.Math.Vector2(980, 720),
+        new Phaser.Math.Vector2(1180, 610),
+        new Phaser.Math.Vector2(1420, 590),
+      ],
+      false,
+      false,
+    );
+    paths.lineStyle(42, 0xead5a5, 1);
+    paths.strokePoints(
+      [
+        new Phaser.Math.Vector2(900, 875),
+        new Phaser.Math.Vector2(980, 720),
+        new Phaser.Math.Vector2(1180, 610),
+        new Phaser.Math.Vector2(1420, 590),
+      ],
+      false,
+      false,
+    );
+
+    const pond = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+    pond.fillStyle(0x4eb8df, 0.95);
+    pond.fillEllipse(430, 500, 300, 180);
+    pond.lineStyle(9, 0xa9e8fa, 0.75);
+    pond.strokeEllipse(430, 500, 300, 180);
+    pond.lineStyle(4, 0xe7fbff, 0.6);
+    pond.strokeEllipse(430, 500, 220, 105);
+    this.addInvisibleObstacle(295, 425, 270, 145);
+
+    this.addBench(760, 470, 0);
+    this.addBench(875, 350, Math.PI / 2);
+    this.addBench(660, 720, 0);
+
+    this.scene.add
+      .text(450, 650, 'ПРУД', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '17px',
+        fontStyle: 'bold',
+        color: '#18516b',
+        backgroundColor: '#dff8ffcc',
+        padding: { x: 9, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.groundLabels);
+  }
+
+  private drawParkEncounter(): void {
+    const yard = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+    yard.fillStyle(0xc9efaa, 0.88);
+    yard.fillRoundedRect(1090, 390, 500, 360, 34);
+    yard.lineStyle(8, 0x4c955c, 0.9);
+    yard.strokeRoundedRect(1090, 390, 500, 360, 34);
+
+    this.addBuilding({
+      x: 1220,
+      y: 475,
+      width: 220,
+      height: 120,
+      color: 0xffedb6,
+      roofColor: 0x5e9b63,
+      label: 'ПАВИЛЬОН',
+    });
+
+    this.scene.add
+      .text(1400, 430, 'ПАРКОВАЯ\nПЛОЩАДКА', {
+        align: 'center',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '17px',
+        fontStyle: 'bold',
+        color: '#27643b',
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.groundLabels);
+  }
+
+  private drawParkBoundary(): void {
+    const hedge = this.scene.add.graphics().setDepth(DEPTH.ground + 8);
+    hedge.fillStyle(0x397f4c, 0.98);
+    hedge.fillRoundedRect(1640, 0, 70, 555, 22);
+    hedge.fillRoundedRect(1640, 745, 70, 365, 22);
+    hedge.lineStyle(6, 0x69ba63, 0.95);
+    hedge.strokeRoundedRect(1640, 0, 70, 555, 22);
+    hedge.strokeRoundedRect(1640, 745, 70, 365, 22);
+
+    this.addInvisibleObstacle(1640, 0, 70, 555);
+    this.addInvisibleObstacle(1640, 745, 70, 365);
+
+    const upperPost = this.scene.add
+      .rectangle(1675, 580, 42, 70, 0x355f78)
+      .setStrokeStyle(5, 0xffffff, 0.75)
+      .setDepth(650);
+    const lowerPost = this.scene.add
+      .rectangle(1675, 720, 42, 70, 0x355f78)
+      .setStrokeStyle(5, 0xffffff, 0.75)
+      .setDepth(720);
+    this.obstacles.add(upperPost);
+    this.obstacles.add(lowerPost);
+    this.addInvisibleObstacle(1648, 610, 54, 80);
+
+    this.scene.add
+      .text(1618, 650, 'CENTRAL HUB →\nСЛЕДУЮЩИЙ ЭТАП', {
+        align: 'center',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '16px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        backgroundColor: '#203f54e8',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(1, 0.5)
+      .setDepth(DEPTH.groundLabels + 1);
+  }
+
   private drawFutureDistricts(): void {
     this.addGate(1760, 1460, 'RICH DISTRICT →', 0x337e78);
     this.addGate(2850, 650, 'VIP ESTATE', 0x7450a8);
@@ -303,9 +502,11 @@ export class WorldBuilder {
       [620, 1500, 0.85],
       [1120, 1190, 0.9],
       [360, 690, 1.15],
-      [650, 520, 0.9],
-      [1200, 520, 1],
-      [1490, 700, 0.9],
+      [180, 300, 0.9],
+      [720, 190, 1],
+      [1030, 270, 0.88],
+      [1540, 270, 1],
+      [1570, 810, 0.92],
       [1980, 1970, 1.1],
       [2200, 1880, 0.8],
       [2440, 2260, 1],
@@ -449,24 +650,46 @@ export class WorldBuilder {
     );
   }
 
-  private addInvisibleObstacle(x: number, y: number, width: number, height: number): void {
+  private addBench(x: number, y: number, rotation: number): void {
+    const bench = this.scene.add
+      .rectangle(x, y, 82, 24, 0xa5683f)
+      .setStrokeStyle(4, 0x6f442b, 0.95)
+      .setRotation(rotation)
+      .setDepth(y);
+    this.scene.add
+      .rectangle(x, y + 13, 72, 8, 0x704329)
+      .setRotation(rotation)
+      .setDepth(y - 1);
+    this.obstacles.add(bench);
+  }
+
+  private addInvisibleObstacle(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Rectangle {
     const obstacle = this.scene.add
       .rectangle(x + width / 2, y + height / 2, width, height, 0xffffff, 0.001)
       .setDepth(DEPTH.ground + 1);
     this.obstacles.add(obstacle);
+    return obstacle;
   }
 
-  private createParkPreviewMarker(): Phaser.GameObjects.Container {
-    const markerPosition = PROTOTYPE_LAYOUT.parkMarker;
-    const glow = this.scene.add.circle(0, 0, 68, 0xffe06a, 0.28);
-    const arrow = this.scene.add.triangle(0, 0, 0, 24, -18, -12, 18, -12, 0xffd43b);
+  private createNavigationMarker(
+    markerPosition: Readonly<{ x: number; y: number }>,
+    text: string,
+    color: number,
+  ): Phaser.GameObjects.Container {
+    const glow = this.scene.add.circle(0, 0, 62, color, 0.24);
+    const arrow = this.scene.add.triangle(0, 0, 0, 24, -18, -12, 18, -12, color);
     const label = this.scene.add
-      .text(0, -76, 'СЛЕДУЮЩАЯ ЗОНА: PARK\nоткроется на следующем этапе', {
+      .text(0, -72, text, {
         align: 'center',
         fontFamily: 'Arial, sans-serif',
         fontSize: '18px',
         fontStyle: 'bold',
-        color: '#5b4610',
+        color: '#17324b',
         backgroundColor: '#fff9d8ee',
         padding: { x: 12, y: 7 },
       })
