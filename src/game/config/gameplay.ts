@@ -18,6 +18,9 @@ export const PET_CONFIG = {
   followSpeed: 285,
   catchUpSpeed: 390,
   teleportDistance: 560,
+  breadcrumbSpacing: 18,
+  breadcrumbReachDistance: 10,
+  breadcrumbMaxPoints: 160,
   deliveryDistance: 190,
   prototypeIncomePerSecond: 1,
 } as const;

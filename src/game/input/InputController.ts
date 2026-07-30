@@ -92,6 +92,10 @@ export class InputController {
     this.virtualControls.setInteractionVisible(visible);
   }
 
+  public setDashReadyRatio(ratio: number): void {
+    this.virtualControls.setDashReadyRatio(ratio);
+  }
+
   public requestDevDash(): void {
     this.devDashRequested = true;
   }

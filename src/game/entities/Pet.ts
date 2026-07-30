@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { PET_CONFIG } from '../config/gameplay';
+import { PlayerPathHistory } from '../systems/PlayerPathHistory';
 
 export enum PetState {
   AtNpcBase = 'AT_NPC_BASE',
@@ -15,6 +16,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private petState = PetState.AtNpcBase;
   private idleAnchor: Phaser.Math.Vector2;
+  private lastBreadcrumbSequence: number | null = null;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'dog');
@@ -32,11 +34,13 @@ export class Pet extends Phaser.GameObjects.Sprite {
 
   public startFollowing(): void {
     this.petState = PetState.FollowingPlayer;
+    this.lastBreadcrumbSequence = null;
     this.setScale(1.08);
   }
 
   public returnToNpcBase(position: Phaser.Math.Vector2): void {
     this.petState = PetState.AtNpcBase;
+    this.lastBreadcrumbSequence = null;
     this.idleAnchor = position.clone();
     this.setPosition(position.x, position.y);
     this.setScale(1);
@@ -46,6 +50,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
 
   public placeAtPlayerBase(position: Phaser.Math.Vector2): void {
     this.petState = PetState.AtPlayerBase;
+    this.lastBreadcrumbSequence = null;
     this.idleAnchor = position.clone();
     this.setPosition(position.x, position.y);
     this.setScale(1.06);
@@ -57,10 +62,10 @@ export class Pet extends Phaser.GameObjects.Sprite {
     time: number,
     delta: number,
     player: Phaser.Types.Math.Vector2Like,
-    playerDirection: Phaser.Math.Vector2,
+    pathHistory: PlayerPathHistory,
   ): void {
     if (this.petState === PetState.FollowingPlayer) {
-      this.updateFollowing(delta, player, playerDirection);
+      this.updateFollowing(delta, player, pathHistory);
     } else {
       this.updateIdle(time);
     }
@@ -72,31 +77,62 @@ export class Pet extends Phaser.GameObjects.Sprite {
   private updateFollowing(
     delta: number,
     player: Phaser.Types.Math.Vector2Like,
-    playerDirection: Phaser.Math.Vector2,
+    pathHistory: PlayerPathHistory,
   ): void {
-    const targetX = player.x - playerDirection.x * PET_CONFIG.followDistance;
-    const targetY = player.y - playerDirection.y * PET_CONFIG.followDistance;
-    const distance = Phaser.Math.Distance.Between(this.x, this.y, targetX, targetY);
+    const distanceToPlayer = Phaser.Math.Distance.Between(
+      this.x,
+      this.y,
+      player.x,
+      player.y,
+    );
 
-    if (distance > PET_CONFIG.teleportDistance) {
-      this.setPosition(targetX, targetY);
+    if (distanceToPlayer > PET_CONFIG.teleportDistance) {
+      const correctionPoint = pathHistory.getTrailingPoint(PET_CONFIG.followDistance);
+      if (correctionPoint !== null) {
+        this.setPosition(correctionPoint.x, correctionPoint.y);
+        this.lastBreadcrumbSequence = correctionPoint.sequence;
+      }
       return;
     }
 
-    if (distance < 12) {
-      return;
-    }
+    for (let skippedPoints = 0; skippedPoints < 4; skippedPoints += 1) {
+      const waypoint = pathHistory.getNextFollowWaypoint(
+        this.lastBreadcrumbSequence,
+        PET_CONFIG.followDistance,
+      );
+      if (waypoint === null) {
+        this.setRotation(this.rotation * 0.82);
+        return;
+      }
 
-    const speed =
-      distance > PET_CONFIG.followDistance * 2
+      const distance = Phaser.Math.Distance.Between(
+        this.x,
+        this.y,
+        waypoint.x,
+        waypoint.y,
+      );
+      if (distance <= PET_CONFIG.breadcrumbReachDistance) {
+        this.lastBreadcrumbSequence = waypoint.sequence;
+        continue;
+      }
+
+      const speed =
+      distanceToPlayer > PET_CONFIG.followDistance * 2
         ? PET_CONFIG.catchUpSpeed
         : PET_CONFIG.followSpeed;
-    const step = Math.min(distance, speed * (delta / 1000));
-    const angle = Phaser.Math.Angle.Between(this.x, this.y, targetX, targetY);
+      const step = Math.min(distance, speed * (delta / 1000));
+      const angle = Phaser.Math.Angle.Between(
+        this.x,
+        this.y,
+        waypoint.x,
+        waypoint.y,
+      );
 
-    this.x += Math.cos(angle) * step;
-    this.y += Math.sin(angle) * step;
-    this.setRotation(Math.sin(angle) * 0.08);
+      this.x += Math.cos(angle) * step;
+      this.y += Math.sin(angle) * step;
+      this.setRotation(Math.sin(angle) * 0.08);
+      return;
+    }
   }
 
   private updateIdle(time: number): void {

@@ -17,6 +17,9 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
       width: '100%',
       height: '100%',
     },
+    input: {
+      activePointers: 3,
+    },
     physics: {
       default: 'arcade',
       arcade: {

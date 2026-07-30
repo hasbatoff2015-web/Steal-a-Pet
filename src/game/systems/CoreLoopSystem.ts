@@ -9,6 +9,7 @@ import { Hud } from '../ui/Hud';
 import { BaseSystem } from './BaseSystem';
 import { ChaseSystem } from './ChaseSystem';
 import { EconomySystem } from './EconomySystem';
+import { PlayerPathHistory } from './PlayerPathHistory';
 
 export enum CoreLoopPhase {
   SeekPet = 'SEEK_PET',
@@ -25,6 +26,7 @@ interface CoreLoopDependencies {
   baseSystem: BaseSystem;
   chaseSystem: ChaseSystem;
   economy: EconomySystem;
+  pathHistory: PlayerPathHistory;
   hud: Hud;
   input: InputController;
   parkPreviewMarker: Phaser.GameObjects.Container;
@@ -39,6 +41,7 @@ export class CoreLoopSystem {
   private readonly baseSystem: BaseSystem;
   private readonly chaseSystem: ChaseSystem;
   private readonly economy: EconomySystem;
+  private readonly pathHistory: PlayerPathHistory;
   private readonly hud: Hud;
   private readonly input: InputController;
   private readonly parkPreviewMarker: Phaser.GameObjects.Container;
@@ -56,13 +59,14 @@ export class CoreLoopSystem {
     this.baseSystem = dependencies.baseSystem;
     this.chaseSystem = dependencies.chaseSystem;
     this.economy = dependencies.economy;
+    this.pathHistory = dependencies.pathHistory;
     this.hud = dependencies.hud;
     this.input = dependencies.input;
     this.parkPreviewMarker = dependencies.parkPreviewMarker;
   }
 
   public update(time: number, delta: number, interactPressed: boolean): void {
-    this.pet.updatePet(time, delta, this.player, this.player.getLastDirection());
+    this.pet.updatePet(time, delta, this.player, this.pathHistory);
     this.chaseSystem.update(this.player);
 
     if (this.phase === CoreLoopPhase.SeekPet) {
@@ -136,6 +140,7 @@ export class CoreLoopSystem {
 
   private startTheft(): void {
     this.phase = CoreLoopPhase.Escape;
+    this.pathHistory.reset(this.player);
     this.pet.startFollowing();
     this.chaseSystem.start();
     this.retryAvailableAt = this.scene.time.now + CHASE_CONFIG.theftHeadStartMs;

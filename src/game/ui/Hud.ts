@@ -122,7 +122,7 @@ export class Hud {
   }
 
   public updateMoney(money: number, incomePerSecond: number): void {
-    const income = incomePerSecond > 0 ? `  +${incomePerSecond}/сек` : '';
+    const income = incomePerSecond > 0 ? ` +${incomePerSecond}/сек` : '';
     this.moneyText.setText(`МОНЕТЫ: ${money}${income}`);
   }
 
@@ -136,6 +136,12 @@ export class Hud {
   }
 
   public setDashReadyRatio(ratio: number, mobileMode: boolean): void {
+    if (mobileMode) {
+      this.dashGraphics.clear();
+      this.dashLabel.setVisible(false);
+      return;
+    }
+
     const width = 126;
     const height = 10;
     const x = this.scene.scale.gameSize.width - width - 20;
@@ -147,8 +153,9 @@ export class Hud {
     this.dashGraphics.fillStyle(ratio >= 1 ? 0x76e69b : 0x69b7ff, 0.95);
     this.dashGraphics.fillRoundedRect(x, y, width * ratio, height, 5);
     this.dashLabel
+      .setVisible(true)
       .setPosition(this.scene.scale.gameSize.width - 20, 31)
-      .setText(mobileMode ? 'РЫВОК' : 'SPACE · РЫВОК');
+      .setText('SPACE · РЫВОК');
   }
 
   public showToast(message: string, durationMs = 1800): void {
@@ -202,20 +209,23 @@ export class Hud {
   private resize(gameSize: Phaser.Structs.Size): void {
     const width = gameSize.width;
     const height = gameSize.height;
-    const compact = width < 680;
+    const compact = width < 760;
+    const veryNarrow = width <= 360;
     const edge = compact ? 10 : 18;
-    const moneyWidth = compact ? 126 : 170;
-    const objectiveWidth = compact ? Math.max(220, width - 24) : Math.min(520, width * 0.48);
+    const moneyWidth = compact ? Math.min(width - 20, 200) : 186;
+    const objectiveWidth = compact ? width - 20 : Math.min(520, width - 412);
 
-    this.moneyPanel.setPosition(edge, compact ? 76 : 16).setSize(moneyWidth, 58);
-    this.moneyText.setPosition(edge + 12, compact ? 91 : 31).setFontSize(compact ? 19 : 24);
+    this.moneyPanel.setPosition(edge, compact ? 76 : 16).setSize(moneyWidth, compact ? 52 : 58);
+    this.moneyText
+      .setPosition(edge + 12, compact ? 91 : 34)
+      .setFontSize(compact ? (veryNarrow ? 14 : 15) : 16);
 
     this.objectivePanel
-      .setPosition(width / 2, compact ? 10 : 16)
+      .setPosition(width / 2, compact ? 8 : 16)
       .setSize(objectiveWidth, compact ? 58 : 58);
     this.objectiveText
-      .setPosition(width / 2, compact ? 22 : 28)
-      .setFontSize(compact ? 15 : 18)
+      .setPosition(width / 2, compact ? 20 : 28)
+      .setFontSize(compact ? (veryNarrow ? 14 : 15) : 18)
       .setWordWrapWidth(objectiveWidth - 24, true);
 
     this.promptText.setPosition(width / 2, compact ? height * 0.68 : height - 88);

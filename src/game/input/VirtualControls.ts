@@ -11,11 +11,13 @@ export class VirtualControls {
   private readonly joystickBase: Phaser.GameObjects.Arc;
   private readonly joystickThumb: Phaser.GameObjects.Arc;
   private readonly dashButton: Phaser.GameObjects.Arc;
+  private readonly dashCooldownRing: Phaser.GameObjects.Graphics;
   private readonly dashLabel: Phaser.GameObjects.Text;
   private readonly interactButton: Phaser.GameObjects.Arc;
   private readonly interactLabel: Phaser.GameObjects.Text;
 
   private joystickPointerId: number | null = null;
+  private dashReadyRatio = 1;
   private dashRequested = false;
   private interactRequested = false;
 
@@ -45,6 +47,11 @@ export class VirtualControls {
       .setScrollFactor(0)
       .setDepth(DEPTH.ui)
       .setInteractive();
+
+    this.dashCooldownRing = scene.add
+      .graphics()
+      .setScrollFactor(0)
+      .setDepth(DEPTH.ui + 1);
 
     this.dashLabel = scene.add
       .text(0, 0, 'РЫВОК', {
@@ -111,6 +118,11 @@ export class VirtualControls {
     this.interactLabel.setVisible(shouldShow);
   }
 
+  public setDashReadyRatio(ratio: number): void {
+    this.dashReadyRatio = Phaser.Math.Clamp(ratio, 0, 1);
+    this.renderDashCooldown();
+  }
+
   public destroy(): void {
     this.scene.input.off('pointermove', this.handlePointerMove, this);
     this.scene.input.off('pointerup', this.handlePointerUp, this);
@@ -119,6 +131,10 @@ export class VirtualControls {
   }
 
   private handleJoystickDown(pointer: Phaser.Input.Pointer): void {
+    if (this.joystickPointerId !== null) {
+      return;
+    }
+
     this.joystickPointerId = pointer.id;
     this.updateJoystick(pointer);
   }
@@ -140,6 +156,10 @@ export class VirtualControls {
   }
 
   private handleDashDown(): void {
+    if (this.dashReadyRatio < 1) {
+      return;
+    }
+
     this.dashRequested = true;
     this.scene.tweens.add({
       targets: [this.dashButton, this.dashLabel],
@@ -198,12 +218,37 @@ export class VirtualControls {
     this.dashLabel.setPosition(actionX, dashY);
     this.interactButton.setPosition(actionX, interactY);
     this.interactLabel.setPosition(actionX, interactY);
+    this.renderDashCooldown();
   }
 
   private setMobileElementsVisible(visible: boolean): void {
     this.joystickBase.setVisible(visible);
     this.joystickThumb.setVisible(visible);
     this.dashButton.setVisible(visible);
+    this.dashCooldownRing.setVisible(visible);
     this.dashLabel.setVisible(visible);
+  }
+
+  private renderDashCooldown(): void {
+    const ready = this.dashReadyRatio >= 1;
+
+    this.dashButton
+      .setFillStyle(ready ? 0x4e8fe8 : 0x20384e, ready ? 0.82 : 0.72)
+      .setStrokeStyle(ready ? 5 : 4, ready ? 0xa8f0bc : 0x8ca0b4, ready ? 0.95 : 0.55);
+    this.dashLabel.setAlpha(ready ? 1 : 0.58);
+
+    this.dashCooldownRing.clear();
+    if (!ready) {
+      this.dashCooldownRing.lineStyle(7, 0x77c9ff, 0.94);
+      this.dashCooldownRing.beginPath();
+      this.dashCooldownRing.arc(
+        this.dashButton.x,
+        this.dashButton.y,
+        47,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * this.dashReadyRatio,
+      );
+      this.dashCooldownRing.strokePath();
+    }
   }
 }

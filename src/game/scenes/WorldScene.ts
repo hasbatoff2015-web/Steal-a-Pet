@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { WORLD } from '../config/gameplay';
+import { PET_CONFIG, WORLD } from '../config/gameplay';
 import { OwnerNpc } from '../entities/OwnerNpc';
 import { Pet } from '../entities/Pet';
 import { Player } from '../entities/Player';
@@ -9,6 +9,7 @@ import { BaseSystem } from '../systems/BaseSystem';
 import { ChaseSystem } from '../systems/ChaseSystem';
 import { CoreLoopSystem } from '../systems/CoreLoopSystem';
 import { EconomySystem } from '../systems/EconomySystem';
+import { PlayerPathHistory } from '../systems/PlayerPathHistory';
 import { Hud } from '../ui/Hud';
 import { createPrototypeTextures } from '../utils/createPrototypeTextures';
 import { DeveloperTools } from '../utils/DeveloperTools';
@@ -20,6 +21,7 @@ export class WorldScene extends Phaser.Scene {
   private owner!: OwnerNpc;
   private inputController!: InputController;
   private economy!: EconomySystem;
+  private pathHistory!: PlayerPathHistory;
   private coreLoop!: CoreLoopSystem;
   private hud!: Hud;
   private developerTools: DeveloperTools | null = null;
@@ -38,6 +40,11 @@ export class WorldScene extends Phaser.Scene {
     this.owner = new OwnerNpc(this, world.npcHome);
     this.inputController = new InputController(this);
     this.economy = new EconomySystem();
+    this.pathHistory = new PlayerPathHistory(
+      this.player,
+      PET_CONFIG.breadcrumbSpacing,
+      PET_CONFIG.breadcrumbMaxPoints,
+    );
     this.hud = new Hud(this);
 
     const baseSystem = new BaseSystem(world.playerDeliveryZone, world.playerPetSlot);
@@ -52,6 +59,7 @@ export class WorldScene extends Phaser.Scene {
       baseSystem,
       chaseSystem,
       economy: this.economy,
+      pathHistory: this.pathHistory,
       hud: this.hud,
       input: this.inputController,
       parkPreviewMarker: world.parkPreviewMarker,
@@ -102,6 +110,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.developerTools?.update();
     this.player.updatePlayer(time, frameInput.movement, frameInput.dashPressed);
+    this.pathHistory.record(this.player);
     this.coreLoop.update(time, delta, frameInput.interactPressed);
     this.economy.update(delta);
 
@@ -109,10 +118,9 @@ export class WorldScene extends Phaser.Scene {
       this.economy.getDisplayedMoney(),
       this.economy.getIncomePerSecond(),
     );
-    this.hud.setDashReadyRatio(
-      this.player.getDashReadyRatio(time),
-      this.inputController.isMobileMode,
-    );
+    const dashReadyRatio = this.player.getDashReadyRatio(time);
+    this.hud.setDashReadyRatio(dashReadyRatio, this.inputController.isMobileMode);
+    this.inputController.setDashReadyRatio(dashReadyRatio);
 
     if (frameInput.debugPressed) {
       this.hud.toggleDebug();
