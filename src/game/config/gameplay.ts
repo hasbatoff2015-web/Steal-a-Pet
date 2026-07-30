@@ -1,0 +1,37 @@
+export const WORLD = {
+  width: 3840,
+  height: 2560,
+} as const;
+
+export const PLAYER_CONFIG = {
+  speed: 230,
+  radius: 19,
+  dashSpeed: 590,
+  dashDurationMs: 170,
+  dashCooldownMs: 900,
+  trailIntervalMs: 42,
+} as const;
+
+export const PET_CONFIG = {
+  interactionRadius: 92,
+  followDistance: 76,
+  followSpeed: 285,
+  catchUpSpeed: 390,
+  teleportDistance: 560,
+  deliveryDistance: 190,
+  prototypeIncomePerSecond: 1,
+} as const;
+
+export const CHASE_CONFIG = {
+  npcSpeed: 226,
+  returnSpeed: 185,
+  catchDistance: 45,
+  theftHeadStartMs: 900,
+  failureGraceMs: 1600,
+} as const;
+
+export const DEPTH = {
+  ground: 0,
+  groundLabels: 20,
+  ui: 100_000,
+} as const;

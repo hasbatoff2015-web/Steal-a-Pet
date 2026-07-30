@@ -1,0 +1,28 @@
+import Phaser from 'phaser';
+
+export class BaseSystem {
+  public constructor(
+    private readonly deliveryZone: Phaser.Geom.Rectangle,
+    private readonly petSlot: Phaser.Math.Vector2,
+  ) {}
+
+  public canDeliver(
+    playerPosition: Phaser.Types.Math.Vector2Like,
+    petPosition: Phaser.Types.Math.Vector2Like,
+    allowedPetDistance: number,
+  ): boolean {
+    return (
+      this.deliveryZone.contains(playerPosition.x, playerPosition.y) &&
+      Phaser.Math.Distance.Between(
+        playerPosition.x,
+        playerPosition.y,
+        petPosition.x,
+        petPosition.y,
+      ) <= allowedPetDistance
+    );
+  }
+
+  public getPetSlot(): Phaser.Math.Vector2 {
+    return this.petSlot;
+  }
+}
