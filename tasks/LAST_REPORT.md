@@ -1,65 +1,33 @@
 # Последний выполненный этап
 
-Этап 2 — Progression, Park Unlock and Multiple Pets.
+Этап 2 — Performance Optimization Pass.
 
 ## Что сделано
 
-- Сохранён и расширен core loop Этапа 1: кража, following, погоня, поимка, повторная попытка и доставка работают для нескольких encounters.
-- Добавлена первая прогрессионная арка: Собака → доход → 25 монет → открытие PARK → Кот → суммарный доход → цель CENTRAL HUB.
-- Добавлен отдельный `ProgressionSystem` с этапами `FIRST_PET`, `EARN_FOR_PARK`, `UNLOCK_PARK`, `STEAL_PARK_PET`, `RETURN_PARK_PET`, `PARK_COMPLETE`.
-- Созданы централизованные definitions питомцев, четырёх редкостей, encounters и zone gates.
-- Собака имеет редкость `COMMON` и доход `+1/сек`; Кот — `UNCOMMON` и `+2/сек`.
-- Добавлен Кот с отдельным силуэтом, размером, цветом и idle motion.
-- `CoreLoopSystem` расширен до одной активной кражи среди нескольких encounters без отдельного сценария на каждый вид.
-- Каждый encounter связывает конкретные `Pet`, `OwnerNpc`, домашние позиции и параметры `ChaseSystem`.
-- PARK физически закрыт воротами на мосту и открывается contextual interaction за 25 монет; деньги реально списываются.
-- Реализована reusable модель `ZoneGateDefinition` / `ZoneGate` / `ZoneGateSystem`, пригодная для следующих зон.
-- PARK наполнен отличимым prototype-окружением: дорожки, деревья, кусты, пруд, лавочки, павильон и отдельная NPC-зона.
-- Восточная prototype-граница PARK блокирует обход закрытого моста.
-- Погоня владельца Кота использует существующую систему с отдельными data-параметрами: чуть большей скоростью и меньшим head-start.
-- Доставленные Собака и Кот остаются видимыми в разных местах базы и продолжают idle movement.
-- `EconomySystem` поддерживает несколько источников, `canAfford`, `spend` и суммарный доход `+3/сек`.
-- HUD автоматически показывает цель текущего этапа прогрессии; markers ведут к PARK, Коту и затем к CENTRAL HUB.
-- Mobile contextual interaction работает для покупки PARK и кражи Кота; существующие joystick, dash и multitouch-конфигурация сохранены.
-- Добавлен `SaveSystem` с `saveVersion: 1`, периодическим сохранением денег и сохранением после ключевых событий.
-- После reload восстанавливаются деньги, PARK, доставленные питомцы, их места на базе, источники дохода, этап и objective.
-- Отсутствующий или повреждённый save безопасно заменяется новой игрой.
-- В `?dev=1` добавлены F4 и `RESET SAVE`, а также инструменты перехода к обоим encounters и gate.
-- Обновлены GDD, карта, экономика, фактическая архитектура и журнал долгосрочных решений.
+- Игровой цикл Phaser явно ограничен максимумом 60 FPS через `target: 60` и `limit: 60`; движение, dash, погоня и экономика остались time/delta-based.
+- HUD переведён на dirty updates: деньги, цель, contextual prompt и visibility меняются только при изменении отображаемого состояния.
+- Desktop и mobile cooldown dash квантизированы на 24 визуальных шага; `Graphics` больше не очищаются и не рисуются заново каждый кадр.
+- Debug overlay F2 и HTML DeveloperTools обновляются не чаще четырёх раз в секунду и не присваивают повторно неизменившийся текст.
+- В F2/dev snapshot добавлены current FPS, rolling FPS и frame time.
+- `EconomySystem` кэширует суммарный доход и пересчитывает его только при добавлении, замене или удалении источника.
+- Убраны безопасные лишние операции в основном update path: переиспользуются `FrameInput` и joystick `Vector2`, видимость progression-маркера меняется только при переходе состояния, idle NPC не повторяет неизменные physics/visual setters.
+- Добавлен `npm run preview` для проверки production build.
+- Проведён аудит статического мира. Текущие постоянные `Graphics` и количество объектов не показали подтверждённого GPU bottleneck, поэтому карту не переписывали в texture chunks без необходимости.
+- Геймдизайн, карта, баланс, скорости, цена PARK, доходы и механики кражи/погони не изменялись.
 
 ## Изменённые/созданные файлы
 
-Созданы:
-
-- `src/game/data/encounters.ts`
-- `src/game/data/pets.ts`
-- `src/game/data/zones.ts`
-- `src/game/systems/PetEncounter.ts`
-- `src/game/systems/ProgressionSystem.ts`
-- `src/game/systems/SaveSystem.ts`
-- `src/game/systems/ZoneGateSystem.ts`
-- `src/game/world/ZoneGate.ts`
-
-Изменены:
-
-- `src/game/config/gameplay.ts`
-- `src/game/data/worldLayout.ts`
+- `src/game/config/gameConfig.ts`
 - `src/game/entities/OwnerNpc.ts`
-- `src/game/entities/Pet.ts`
 - `src/game/input/InputController.ts`
 - `src/game/input/VirtualControls.ts`
 - `src/game/scenes/WorldScene.ts`
-- `src/game/systems/BaseSystem.ts`
-- `src/game/systems/ChaseSystem.ts`
 - `src/game/systems/CoreLoopSystem.ts`
 - `src/game/systems/EconomySystem.ts`
 - `src/game/ui/Hud.ts`
 - `src/game/utils/DeveloperTools.ts`
-- `src/game/utils/createPrototypeTextures.ts`
-- `src/game/world/WorldBuilder.ts`
-- `docs/GAME_DESIGN.md`
-- `docs/MAP.md`
-- `docs/ECONOMY.md`
+- `package.json`
+- `README.md`
 - `docs/TECH_ARCHITECTURE.md`
 - `docs/DEVELOPMENT_LOG.md`
 - `tasks/CURRENT_TASK.md`
@@ -67,67 +35,65 @@
 
 ## Технические решения
 
-- `PetDefinition` хранит id, имя, редкость, доход, visual key, prototype color и зону. Игровые классы не дублируют баланс.
-- `PetEncounterDefinition` связывает питомца, владельца, домашние координаты и настраиваемые параметры погони.
-- `PetEncounter` инкапсулирует runtime-связь `Pet + OwnerNpc + ChaseSystem`; глобальная прогрессия и экономика остаются снаружи.
-- `CoreLoopSystem` хранит только текущий active encounter. При поимке питомец возвращается к своему encounter, при доставке помещается в data-defined base slot, затем active theft очищается.
-- `ProgressionSystem` отделён от HUD, Player и Economy. Objective выводится из доставленных питомцев, открытых зон, денег и активной кражи.
-- Gate состоит из data definition, world object и system. Коллизия удаляется только после успешного списания цены и открытия зоны.
-- `EconomySystem` использует именованные источники дохода, поэтому повторное восстановление одного питомца не удваивает доход.
-- Save key: `steal-a-pet.save.v1`. Формат содержит `saveVersion`, `money`, `parkUnlocked`, `deliveredPetIds`, `unlockedZones`, `campaignStage`.
-- Запись save происходит после доставки/открытия, раз в 5 секунд для денег и перед закрытием; запись каждый кадр исключена.
-- При загрузке состояние мира восстанавливается из фактов сохранения, включая Pet states, gate collider и income sources.
-- Breadcrumb-following Этапа 1 используется текущим активным питомцем без дополнительных update loops и игровых breadcrumb-объектов.
+- Phaser loop использует 60 FPS как целевой и максимальный update rate без перехода на 30 FPS.
+- Текстовые компоненты хранят последнюю реально показанную строку и вызывают `setText` только при изменении.
+- Cooldown использует 24 шага: визуально остаётся плавным, но число перерисовок ограничено реальными изменениями шага.
+- Performance sampling работает с интервалом 250 мс. Rolling FPS рассчитывается сглаживанием, frame time — по фактическим update delta.
+- Суммарный income является производным кэшем `EconomySystem`; HUD читает готовое значение и не обходит Map.
+- Большие prototype Graphics пока оставлены как есть: baseline подтвердил достаточный запас до лимита, а chunked textures добавили бы крупный рискованный rewrite без измеренной пользы.
 
 ## Проверки
+
+До оптимизации в автоматизированной browser-среде loop был неограниченным и заметно менялся между сценариями:
+
+- обычный STARTER SUBURB: около 82 FPS / 12,2 мс;
+- dev STARTER SUBURB: около 170 FPS / 5,9 мс;
+- погоня: около 172 FPS / 5,8 мс;
+- PARK: около 171 FPS / 5,85 мс;
+- оба питомца на базе: около 170 FPS / 5,9 мс.
+
+Эти значения показывали лишнюю частоту update, а не полезную частоту выше частоты экрана.
+
+После оптимизации:
+
+- dev, оба питомца на базе: current 60 FPS, rolling 57,3 FPS, 16,73 мс;
+- обычный dev runtime: current 60 FPS, rolling 57,5 FPS, 16,79 мс;
+- production preview после чистой загрузки: current 59 FPS, rolling 57,7–59,1 FPS, 16,84–16,89 мс;
+- dev snapshot подтверждает `limit=60`.
+
+Во время активных действий browser automation встречались краткие выборки 45–47 FPS / 21–22 мс из-за нагрузки инструмента и фонового планирования вкладки; после прекращения автоматизации показатели возвращались к 59–60 FPS.
 
 Запускалось:
 
 - `npm run typecheck` — успешно, ошибок TypeScript нет.
-- `npm run build` — успешно; Vite обработал 32 модуля и создал production-сборку.
+- `npm run build` — успешно, production bundle создан.
+- `npm run preview` — production build успешно запущен и проверен.
 - `git diff --check` — успешно, whitespace errors нет.
-- Проверено, что `dist/` и `node_modules/` не входят в изменённые/добавленные файлы Git.
 
-Desktop runtime:
+Runtime проверен в dev и production preview:
 
-- новая игра с 0 монет, закрытым PARK, Собакой и физически недоступным Котом;
-- кража Собаки, following, старт погони, поимка, возврат и повторная попытка;
-- доставка Собаки и фактический доход около `+1/сек`;
-- запрет покупки до 25 монет и сообщение «Нужно 25 монет»;
-- накопление 25 монет, списание 25 и удаление физической коллизии gate;
-- переход в PARK и отдельный визуальный язык зоны;
-- кража Кота, более быстрый владелец, поимка и повторная попытка;
-- доставка Кота, оба питомца в отдельных slots и суммарный доход около `+3/сек`;
-- celebratory message PARK и следующая цель CENTRAL HUB;
-- reload после периодического save: деньги, PARK, оба питомца, income sources и objective восстановлены;
-- dev reset: новая игра восстановлена с 0 монет, закрытым PARK и обоими питомцами на NPC-позициях.
-
-Mobile/runtime:
-
-- mobile HUD визуально проверен на ширине 320 px и в portrait 390 px: objective, money и controls не пересекаются;
-- верхний desktop dash indicator отсутствует, cooldown виден затемнением и восстанавливающимся кольцом на кнопке «РЫВОК»;
-- joystick реагирует на pointer drag;
-- contextual touch-кнопкой выполнены кража Собаки, покупка PARK и кража Кота;
-- строка активного дохода помещается в отдельную money panel;
-- resize/orientation layout пересчитывается существующей responsive-системой.
-
-Накопление 25 монет при `+1/сек` в runtime занимает примерно 25 секунд. За время теста оно не выглядело сломанным или чрезмерным, цена не менялась; окончательное ощущение темпа требует review Game Director.
+- загрузка обычного и `?dev=1` режимов;
+- перемещение и dash без изменения наблюдаемой дистанции;
+- кража Собаки, погоня, поимка, повторная попытка и доставка;
+- покупка PARK и физическое открытие прохода;
+- кража и доставка Кота;
+- оба питомца на базе и суммарный доход `+3/сек`;
+- reload с восстановлением PARK, питомцев, денег, income sources и objective;
+- mobile layout 390×780, joystick UI, contextual interaction и cooldown кнопки dash;
+- browser console — ошибок и предупреждений runtime не обнаружено.
 
 ## Остались проблемы
 
-- Vite сохраняет предупреждение о Phaser bundle больше 500 kB. Сборка успешна; это не runtime-ошибка, но production-оптимизацию нужно выполнить ближе к публикации.
-- Автоматизированная browser-среда не воспроизводит настоящее одновременное удержание двумя физическими пальцами. Независимые pointer ID, `activePointers: 3` и отдельные touch interactions сохранены; нужен короткий hands-on тест joystick + purchase/theft на реальном телефоне.
-- Погони используют прямое Arcade Physics-преследование и открытые маршруты. Это соответствует этапу, но фактическая сложность PARK-погони требует игрового playtest.
-- Автоматические unit/integration tests и lint пока не настроены.
+- Vite по-прежнему предупреждает, что Phaser bundle больше 500 kB. Сборка успешна; это вопрос будущей загрузочной оптимизации, не текущий runtime defect.
+- Автоматизированная browser-среда не заменяет profiling на физическом слабом/среднем телефоне и может сама влиять на frame scheduling.
+- При дальнейшем наполнении мира статические `Graphics` могут потребовать повторного профилирования и перехода на chunked textures 512–1024 px, но подтверждённой необходимости сейчас нет.
+- Lint и автоматические unit/integration tests пока не настроены.
 
 ## Требуется решение Game Director
 
-- Оценить темп ожидания 25 монет и не менять утверждённые значения без нового решения.
-- Оценить сложность погони Кота относительно Собаки и при необходимости назначить балансировочные значения.
-- Принять визуальную читаемость PARK, gate, Кота и навигационных markers как prototype layout.
-- Подтвердить этап после короткой проверки на реальном touch-устройстве.
+Нет. Для принятия Этапа 2 желательна короткая проверка стабильности и multitouch на реальном мобильном устройстве, но менять утверждённые параметры не требуется.
 
 ## Предложения Codex
 
-- После принятия этапа зафиксировать результаты playtest как data-правки encounter/gate definitions без изменения архитектуры.
-- До появления несовместимого формата сохранения определить простое правило миграции с `saveVersion: 1` на следующую версию.
+- Перед добавлением следующего крупного слоя контента записать профиль на одном среднем и одном слабом мобильном устройстве; texture chunking применять только при подтверждённой GPU/render нагрузке.
+- При подготовке публикации отдельно проверить стартовый размер Phaser bundle и время загрузки в окружении Яндекс Игр.

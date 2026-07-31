@@ -12,6 +12,19 @@ COMPLETED — AWAITING GAME DIRECTOR REVIEW
 
 Этап должен заложить расширяемую основу прогрессии по карте, нескольких питомцев и NPC encounters, физических zone gates и локального сохранения.
 
+## Текущий review pass
+
+Стабилизировать runtime до добавления нового контента, не меняя геймдизайн, карту, баланс, скорости, стоимость PARK, доход или механику кражи и погони.
+
+- Ограничить игровой loop максимумом 60 FPS.
+- Убрать повторные одинаковые обновления Phaser Text, visibility и Graphics.
+- Квантизировать desktop/mobile dash cooldown.
+- Ограничить dev DOM snapshot и F2 performance overlay частотой 4 раза/сек.
+- Кэшировать суммарный income.
+- Проверить основной update path и статический мир без ненужного rewrite.
+- Добавить `npm run preview` и сравнить dev с production preview.
+- После проверок вернуть статус `COMPLETED — AWAITING GAME DIRECTOR REVIEW`.
+
 ## Объём
 
 - Добавить отдельную `ProgressionSystem` с состояниями первой арки кампании.

@@ -1,6 +1,7 @@
 export class EconomySystem {
   private readonly incomeSources = new Map<string, number>();
   private money: number;
+  private totalIncomePerSecond = 0;
 
   public constructor(initialMoney = 0) {
     this.money = Math.max(0, initialMoney);
@@ -11,11 +12,24 @@ export class EconomySystem {
       return;
     }
 
-    this.money += this.getIncomePerSecond() * (deltaMs / 1000);
+    this.money += this.totalIncomePerSecond * (deltaMs / 1000);
   }
 
   public addIncomeSource(id: string, incomePerSecond: number): void {
+    const previousIncome = this.incomeSources.get(id) ?? 0;
     this.incomeSources.set(id, incomePerSecond);
+    this.totalIncomePerSecond += incomePerSecond - previousIncome;
+  }
+
+  public removeIncomeSource(id: string): boolean {
+    const income = this.incomeSources.get(id);
+    if (income === undefined) {
+      return false;
+    }
+
+    this.incomeSources.delete(id);
+    this.totalIncomePerSecond -= income;
+    return true;
   }
 
   public canAfford(amount: number): boolean {
@@ -46,10 +60,6 @@ export class EconomySystem {
   }
 
   public getIncomePerSecond(): number {
-    let total = 0;
-    for (const income of this.incomeSources.values()) {
-      total += income;
-    }
-    return total;
+    return this.totalIncomePerSecond;
   }
 }

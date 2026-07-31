@@ -20,6 +20,10 @@ export function createGameConfig(): Phaser.Types.Core.GameConfig {
     input: {
       activePointers: 3,
     },
+    fps: {
+      target: 60,
+      limit: 60,
+    },
     physics: {
       default: 'arcade',
       arcade: {

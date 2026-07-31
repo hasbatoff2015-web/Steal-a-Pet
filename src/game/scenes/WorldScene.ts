@@ -131,11 +131,12 @@ export class WorldScene extends Phaser.Scene {
   public override update(time: number, delta: number): void {
     const frameInput = this.inputController.readFrame();
 
-    this.developerTools?.update();
+    this.developerTools?.update(time);
     this.player.updatePlayer(time, frameInput.movement, frameInput.dashPressed);
     this.pathHistory.record(this.player);
     this.coreLoop.update(time, delta, frameInput.interactPressed);
     this.economy.update(delta);
+    this.hud.recordPerformance(time, delta);
 
     this.hud.updateMoney(
       this.economy.getDisplayedMoney(),
@@ -152,17 +153,18 @@ export class WorldScene extends Phaser.Scene {
       this.hud.toggleDebug();
     }
 
-    this.hud.updateDebug({
-      fps: this.game.loop.actualFps,
-      playerX: this.player.x,
-      playerY: this.player.y,
-      petState: this.encounters
-        .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
-        .join(' '),
-      chaseState: this.encounters
-        .map((encounter) => `${encounter.definition.id}:${encounter.chase.getState()}`)
-        .join(' '),
-    });
+    if (this.hud.shouldRefreshDebug(time)) {
+      this.hud.updateDebug({
+        playerX: this.player.x,
+        playerY: this.player.y,
+        petState: this.encounters
+          .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
+          .join(' '),
+        chaseState: this.encounters
+          .map((encounter) => `${encounter.definition.id}:${encounter.chase.getState()}`)
+          .join(' '),
+      });
+    }
   }
 
   private createEncounters(baseSystem: BaseSystem): readonly PetEncounter[] {
@@ -266,6 +268,9 @@ export class WorldScene extends Phaser.Scene {
       `active=${this.coreLoop.getActiveEncounterId()}`,
       `money=${this.economy.getMoney().toFixed(2)}`,
       `income=${this.economy.getIncomePerSecond()}`,
+      `fps=${this.hud.getCurrentFps().toFixed(0)}/${this.hud.getRollingFps().toFixed(1)}`,
+      `frame=${this.hud.getAverageFrameTimeMs().toFixed(2)}ms`,
+      `limit=${this.game.loop.fpsLimit}`,
       `pos=${this.player.x.toFixed(0)},${this.player.y.toFixed(0)}`,
       `park=${this.progression.isZoneUnlocked(ZoneId.Park)}`,
       `pets=${this.encounters

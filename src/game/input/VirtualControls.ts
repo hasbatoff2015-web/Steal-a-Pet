@@ -3,11 +3,13 @@ import Phaser from 'phaser';
 import { DEPTH } from '../config/gameplay';
 
 const JOYSTICK_RADIUS = 66;
+const DASH_VISUAL_STEPS = 24;
 
 export class VirtualControls {
   public readonly isMobileMode: boolean;
 
   private readonly movement = new Phaser.Math.Vector2();
+  private readonly joystickOffset = new Phaser.Math.Vector2();
   private readonly joystickBase: Phaser.GameObjects.Arc;
   private readonly joystickThumb: Phaser.GameObjects.Arc;
   private readonly dashButton: Phaser.GameObjects.Arc;
@@ -20,6 +22,9 @@ export class VirtualControls {
   private dashReadyRatio = 1;
   private dashRequested = false;
   private interactRequested = false;
+  private lastInteractionLabel = 'УКРАСТЬ';
+  private lastInteractionVisible: boolean | null = null;
+  private lastDashVisualStep = -1;
 
   public constructor(private readonly scene: Phaser.Scene) {
     const search = new URLSearchParams(window.location.search);
@@ -114,13 +119,22 @@ export class VirtualControls {
 
   public setInteractionVisible(visible: boolean, label = 'УКРАСТЬ'): void {
     const shouldShow = visible && this.isMobileMode;
-    this.interactLabel.setText(label);
-    this.interactButton.setVisible(shouldShow);
-    this.interactLabel.setVisible(shouldShow);
+    if (label !== this.lastInteractionLabel) {
+      this.lastInteractionLabel = label;
+      this.interactLabel.setText(label);
+    }
+    if (shouldShow !== this.lastInteractionVisible) {
+      this.lastInteractionVisible = shouldShow;
+      this.interactButton.setVisible(shouldShow);
+      this.interactLabel.setVisible(shouldShow);
+    }
   }
 
   public setDashReadyRatio(ratio: number): void {
     this.dashReadyRatio = Phaser.Math.Clamp(ratio, 0, 1);
+    if (!this.isMobileMode) {
+      return;
+    }
     this.renderDashCooldown();
   }
 
@@ -181,7 +195,7 @@ export class VirtualControls {
   }
 
   private updateJoystick(pointer: Phaser.Input.Pointer): void {
-    const offset = new Phaser.Math.Vector2(
+    const offset = this.joystickOffset.set(
       pointer.x - this.joystickBase.x,
       pointer.y - this.joystickBase.y,
     );
@@ -219,7 +233,7 @@ export class VirtualControls {
     this.dashLabel.setPosition(actionX, dashY);
     this.interactButton.setPosition(actionX, interactY);
     this.interactLabel.setPosition(actionX, interactY);
-    this.renderDashCooldown();
+    this.renderDashCooldown(true);
   }
 
   private setMobileElementsVisible(visible: boolean): void {
@@ -230,8 +244,21 @@ export class VirtualControls {
     this.dashLabel.setVisible(visible);
   }
 
-  private renderDashCooldown(): void {
+  private renderDashCooldown(force = false): void {
+    if (!this.isMobileMode) {
+      return;
+    }
+
     const ready = this.dashReadyRatio >= 1;
+    const visualStep = ready
+      ? DASH_VISUAL_STEPS
+      : Math.floor(this.dashReadyRatio * DASH_VISUAL_STEPS);
+    if (!force && visualStep === this.lastDashVisualStep) {
+      return;
+    }
+
+    this.lastDashVisualStep = visualStep;
+    const visualRatio = visualStep / DASH_VISUAL_STEPS;
 
     this.dashButton
       .setFillStyle(ready ? 0x4e8fe8 : 0x20384e, ready ? 0.82 : 0.72)
@@ -247,7 +274,7 @@ export class VirtualControls {
         this.dashButton.y,
         47,
         -Math.PI / 2,
-        -Math.PI / 2 + Math.PI * 2 * this.dashReadyRatio,
+        -Math.PI / 2 + Math.PI * 2 * visualRatio,
       );
       this.dashCooldownRing.strokePath();
     }

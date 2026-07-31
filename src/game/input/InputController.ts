@@ -14,6 +14,12 @@ export class InputController {
 
   private readonly virtualControls: VirtualControls;
   private readonly movement = new Phaser.Math.Vector2();
+  private readonly frameInput: FrameInput = {
+    movement: this.movement,
+    dashPressed: false,
+    interactPressed: false,
+    debugPressed: false,
+  };
   private readonly up: Phaser.Input.Keyboard.Key;
   private readonly down: Phaser.Input.Keyboard.Key;
   private readonly left: Phaser.Input.Keyboard.Key;
@@ -74,18 +80,16 @@ export class InputController {
       this.movement.normalize();
     }
 
-    return {
-      movement: this.movement,
-      dashPressed:
-        Phaser.Input.Keyboard.JustDown(this.dash) ||
-        this.virtualControls.consumeDash() ||
-        this.consumeDevDash(),
-      interactPressed:
-        Phaser.Input.Keyboard.JustDown(this.interact) ||
-        this.virtualControls.consumeInteract() ||
-        this.consumeDevInteract(),
-      debugPressed: Phaser.Input.Keyboard.JustDown(this.debug),
-    };
+    this.frameInput.dashPressed =
+      Phaser.Input.Keyboard.JustDown(this.dash) ||
+      this.virtualControls.consumeDash() ||
+      this.consumeDevDash();
+    this.frameInput.interactPressed =
+      Phaser.Input.Keyboard.JustDown(this.interact) ||
+      this.virtualControls.consumeInteract() ||
+      this.consumeDevInteract();
+    this.frameInput.debugPressed = Phaser.Input.Keyboard.JustDown(this.debug);
+    return this.frameInput;
   }
 
   public setInteractionVisible(visible: boolean, label?: string): void {

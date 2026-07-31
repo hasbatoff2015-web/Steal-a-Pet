@@ -40,6 +40,7 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
 
   public startChase(): void {
     this.ownerState = OwnerState.Chasing;
+    this.setScale(1);
     this.setTint(0xffd1cc);
   }
 
@@ -49,9 +50,14 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
   }
 
   public updateNpc(player: Phaser.GameObjects.GameObject & Phaser.Types.Math.Vector2Like): void {
+    if (this.ownerState === OwnerState.Idle) {
+      this.setScale(1 + Math.sin(this.scene.time.now / 350) * 0.025);
+      return;
+    }
+
     if (this.ownerState === OwnerState.Chasing) {
       this.scene.physics.moveToObject(this, player, this.chaseParameters.npcSpeed);
-    } else if (this.ownerState === OwnerState.Returning) {
+    } else {
       const distance = Phaser.Math.Distance.Between(this.x, this.y, this.home.x, this.home.y);
 
       if (distance < 12) {
@@ -66,9 +72,6 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
           this.chaseParameters.returnSpeed,
         );
       }
-    } else {
-      this.setVelocity(0, 0);
-      this.setScale(1 + Math.sin(this.scene.time.now / 350) * 0.025);
     }
 
     const body = this.body as Phaser.Physics.Arcade.Body;

@@ -24,6 +24,7 @@ Vite требует Node.js `^20.19.0` или `>=22.12.0`.
 - `npm run dev` — локальный Vite dev-сервер.
 - `npm run typecheck` — `tsc --noEmit`.
 - `npm run build` — typecheck и production-сборка Vite.
+- `npm run preview` — локальный запуск собранного `dist/` через Vite preview.
 - `base: './'` обеспечивает относительные пути статической сборки.
 - Серверная логика отсутствует.
 - `node_modules/`, `dist/`, логи и временные файлы исключены через `.gitignore`.
@@ -202,6 +203,21 @@ Objective вычисляется из состояния прогрессии, �
 
 `Hud` показывает деньги, суммарный доход, текущую цель, contextual prompt, dash cooldown и короткие сообщения. Он не изменяет экономику или прогрессию.
 
+## Runtime performance
+
+- Phaser loop явно настроен как `target: 60`, `limit: 60`; игровой update не выполняется чаще 60 раз/сек.
+- Movement, dash, following, chase и economy используют `delta`/время Phaser, поэтому ограничение FPS не меняет игровые скорости.
+- `Hud` кэширует реально отображаемые money, objective и interaction prompt и не вызывает `Text.setText`/`setVisible` для одинакового состояния.
+- Desktop и mobile dash cooldown квантизированы на 24 визуальных шага. `Graphics.clear` и redraw выполняются только при смене шага или layout.
+- `EconomySystem` кэширует суммарный income и пересчитывает его только при добавлении, замене или удалении источника.
+- `InputController` переиспользует объект `FrameInput`; mobile joystick переиспользует рабочий `Vector2`.
+- Навигационные markers меняют visibility только при реальном переходе состояния; ссылка на PARK encounter кэшируется.
+- Неактивный `OwnerNpc` не выполняет повторные velocity/shadow/depth updates, пока стоит на месте.
+- HTML snapshot `DeveloperTools` и F2 debug Text обновляются не чаще четырёх раз в секунду и только при изменении текста.
+- F2 показывает current update FPS, rolling FPS и среднее frame time за последнее окно измерения.
+
+`WorldBuilder` проверен отдельно. Статический мир состоит из небольшого числа постоянных `Graphics`-слоёв и ограниченного количества простых Game Objects; baseline throughput превышал целевые 60 FPS. Переход на chunked RenderTexture/DynamicTexture не выполнен, потому что он не устраняет найденные CPU/dirty-update bottlenecks и потребовал бы неоправданного rewrite карты. При росте контента этот вопрос нужно перепроверить профилированием на целевых мобильных устройствах.
+
 ## Сохранение
 
 `SaveSystem` использует ключ `steal-a-pet.save.v1`.
@@ -231,7 +247,7 @@ campaignStage
 
 ## Debug и QA
 
-- `F2` — FPS, координаты и состояния runtime.
+- `F2` — current/rolling FPS, frame time, координаты и состояния runtime; текст обновляется 4 раза/сек.
 - `?dev=1` — dev-only панель для перемещения к encounters/gate, выдачи 25 монет, interaction, dash, доставки, поимки и reset save.
 - `?touch=1` — принудительный mobile input для технической проверки.
 - Debug выключен по умолчанию.
@@ -249,6 +265,8 @@ campaignStage
 - навигационные markers до PARK, Кота и CENTRAL HUB;
 - versioned localStorage save и dev reset;
 - desktop/mobile input, multitouch config и responsive HUD.
+- ограниченный 60 FPS loop и dirty/quantized UI updates;
+- lightweight performance display и production preview script.
 
 ## Ещё не реализовано
 
@@ -260,4 +278,4 @@ campaignStage
 - SDK Яндекс Игр и реклама;
 - сложный NPC pathfinding;
 - автоматические unit/integration tests и lint;
-- production-оптимизация размера Phaser bundle.
+- production-оптимизация размера Phaser bundle и повторный GPU-профиль при существенном росте карты.

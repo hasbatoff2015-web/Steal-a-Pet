@@ -3,12 +3,14 @@ import Phaser from 'phaser';
 import { DEPTH } from '../config/gameplay';
 
 export interface DebugSnapshot {
-  fps: number;
   playerX: number;
   playerY: number;
   petState: string;
   chaseState: string;
 }
+
+const DASH_VISUAL_STEPS = 24;
+const PERFORMANCE_SAMPLE_INTERVAL_MS = 250;
 
 export class Hud {
   private readonly moneyPanel: Phaser.GameObjects.Rectangle;
@@ -23,6 +25,20 @@ export class Hud {
 
   private toastTimer: Phaser.Time.TimerEvent | null = null;
   private debugVisible = false;
+  private lastMoneyText = '';
+  private lastObjectiveText = '';
+  private lastPromptText = '';
+  private lastPromptVisible = false;
+  private lastDashVisualStep = -1;
+  private lastDashMobileMode: boolean | null = null;
+  private lastDebugText = '';
+  private nextDebugTextAt = 0;
+  private nextPerformanceSampleAt = 0;
+  private sampledFrameTimeTotal = 0;
+  private sampledFrameCount = 0;
+  private currentFps = 0;
+  private rollingFps = 0;
+  private averageFrameTimeMs = 0;
 
   public constructor(private readonly scene: Phaser.Scene) {
     this.moneyPanel = scene.add
@@ -123,25 +139,61 @@ export class Hud {
 
   public updateMoney(money: number, incomePerSecond: number): void {
     const income = incomePerSecond > 0 ? ` +${incomePerSecond}/сек` : '';
-    this.moneyText.setText(`МОНЕТЫ: ${money}${income}`);
-  }
-
-  public setObjective(objective: string): void {
-    this.objectiveText.setText(`ЦЕЛЬ: ${objective}`);
-  }
-
-  public setInteractionPrompt(visible: boolean, text: string): void {
-    this.promptText.setText(text);
-    this.promptText.setVisible(visible);
-  }
-
-  public setDashReadyRatio(ratio: number, mobileMode: boolean): void {
-    if (mobileMode) {
-      this.dashGraphics.clear();
-      this.dashLabel.setVisible(false);
+    const text = `МОНЕТЫ: ${money}${income}`;
+    if (text === this.lastMoneyText) {
       return;
     }
 
+    this.lastMoneyText = text;
+    this.moneyText.setText(text);
+  }
+
+  public setObjective(objective: string): void {
+    const text = `ЦЕЛЬ: ${objective}`;
+    if (text === this.lastObjectiveText) {
+      return;
+    }
+
+    this.lastObjectiveText = text;
+    this.objectiveText.setText(text);
+  }
+
+  public setInteractionPrompt(visible: boolean, text: string): void {
+    if (text !== this.lastPromptText) {
+      this.lastPromptText = text;
+      this.promptText.setText(text);
+    }
+    if (visible !== this.lastPromptVisible) {
+      this.lastPromptVisible = visible;
+      this.promptText.setVisible(visible);
+    }
+  }
+
+  public setDashReadyRatio(ratio: number, mobileMode: boolean): void {
+    if (mobileMode !== this.lastDashMobileMode) {
+      this.lastDashMobileMode = mobileMode;
+      this.lastDashVisualStep = -1;
+      this.dashLabel.setVisible(!mobileMode);
+      if (mobileMode) {
+        this.dashGraphics.clear();
+      }
+    }
+
+    if (mobileMode) {
+      return;
+    }
+
+    const clampedRatio = Phaser.Math.Clamp(ratio, 0, 1);
+    const visualStep =
+      clampedRatio >= 1
+        ? DASH_VISUAL_STEPS
+        : Math.floor(clampedRatio * DASH_VISUAL_STEPS);
+    if (visualStep === this.lastDashVisualStep) {
+      return;
+    }
+
+    this.lastDashVisualStep = visualStep;
+    const visualRatio = visualStep / DASH_VISUAL_STEPS;
     const width = 126;
     const height = 10;
     const x = this.scene.scale.gameSize.width - width - 20;
@@ -150,12 +202,8 @@ export class Hud {
     this.dashGraphics.clear();
     this.dashGraphics.fillStyle(0x152a42, 0.8);
     this.dashGraphics.fillRoundedRect(x, y, width, height, 5);
-    this.dashGraphics.fillStyle(ratio >= 1 ? 0x76e69b : 0x69b7ff, 0.95);
-    this.dashGraphics.fillRoundedRect(x, y, width * ratio, height, 5);
-    this.dashLabel
-      .setVisible(true)
-      .setPosition(this.scene.scale.gameSize.width - 20, 31)
-      .setText('SPACE · РЫВОК');
+    this.dashGraphics.fillStyle(visualStep >= DASH_VISUAL_STEPS ? 0x76e69b : 0x69b7ff, 0.95);
+    this.dashGraphics.fillRoundedRect(x, y, width * visualRatio, height, 5);
   }
 
   public showToast(message: string, durationMs = 1800): void {
@@ -183,22 +231,70 @@ export class Hud {
   public toggleDebug(): boolean {
     this.debugVisible = !this.debugVisible;
     this.debugText.setVisible(this.debugVisible);
+    this.nextDebugTextAt = 0;
     return this.debugVisible;
   }
 
-  public updateDebug(snapshot: DebugSnapshot): void {
-    if (!this.debugVisible) {
+  public recordPerformance(time: number, delta: number): void {
+    this.sampledFrameTimeTotal += delta;
+    this.sampledFrameCount += 1;
+
+    if (time < this.nextPerformanceSampleAt) {
       return;
     }
 
-    this.debugText.setText(
+    this.averageFrameTimeMs =
+      this.sampledFrameCount > 0
+        ? this.sampledFrameTimeTotal / this.sampledFrameCount
+        : delta;
+    const sampledFps =
+      this.averageFrameTimeMs > 0 ? 1000 / this.averageFrameTimeMs : 0;
+    this.currentFps = sampledFps;
+    this.rollingFps =
+      this.rollingFps === 0
+        ? sampledFps
+        : this.rollingFps * 0.7 + sampledFps * 0.3;
+    this.sampledFrameTimeTotal = 0;
+    this.sampledFrameCount = 0;
+    this.nextPerformanceSampleAt = time + PERFORMANCE_SAMPLE_INTERVAL_MS;
+  }
+
+  public shouldRefreshDebug(time: number): boolean {
+    if (!this.debugVisible || time < this.nextDebugTextAt) {
+      return false;
+    }
+
+    this.nextDebugTextAt = time + PERFORMANCE_SAMPLE_INTERVAL_MS;
+    return true;
+  }
+
+  public updateDebug(snapshot: DebugSnapshot): void {
+    const text =
       [
-        `FPS: ${snapshot.fps.toFixed(0)}`,
+        `FPS: ${this.currentFps.toFixed(0)} · AVG: ${this.rollingFps.toFixed(1)}`,
+        `FRAME: ${this.averageFrameTimeMs.toFixed(2)} ms`,
         `PLAYER: ${snapshot.playerX.toFixed(0)}, ${snapshot.playerY.toFixed(0)}`,
         `PET: ${snapshot.petState}`,
         `CHASE: ${snapshot.chaseState}`,
-      ].join('\n'),
-    );
+      ].join('\n');
+    if (text === this.lastDebugText) {
+      return;
+    }
+
+    this.lastDebugText = text;
+    this.debugText.setText(text);
+  }
+
+  public getCurrentFps(): number {
+    return this.currentFps;
+  }
+
+  public getRollingFps(): number {
+    return this.rollingFps;
+  }
+
+  public getAverageFrameTimeMs(): number {
+    return this.averageFrameTimeMs;
   }
 
   public destroy(): void {
@@ -235,5 +331,7 @@ export class Hud {
       .setWordWrapWidth(Math.max(240, width - 40), true);
 
     this.debugText.setPosition(12, compact ? 146 : 84);
+    this.dashLabel.setPosition(width - 20, 31);
+    this.lastDashVisualStep = -1;
   }
 }

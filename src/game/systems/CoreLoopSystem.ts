@@ -51,10 +51,17 @@ export class CoreLoopSystem {
   private readonly input: InputController;
   private readonly navigationMarkers: NavigationMarkers;
   private readonly onProgressChanged: () => void;
+  private readonly catEncounter: PetEncounter | undefined;
 
   private activeEncounter: PetEncounter | null = null;
   private retryAvailableAt = 0;
   private objective = 'Укради Собаку';
+  private parkMarkerVisible = false;
+  private catMarkerVisible = false;
+  private centralHubMarkerVisible = false;
+  private cachedBaseObjective = '';
+  private cachedObjectiveStage: ProgressionStage | null = null;
+  private cachedObjectiveMoney = -1;
 
   public constructor(dependencies: CoreLoopDependencies) {
     this.scene = dependencies.scene;
@@ -69,6 +76,9 @@ export class CoreLoopSystem {
     this.input = dependencies.input;
     this.navigationMarkers = dependencies.navigationMarkers;
     this.onProgressChanged = dependencies.onProgressChanged;
+    this.catEncounter = this.encounters.find(
+      (encounter) => encounter.pet.petId === 'cat',
+    );
   }
 
   public update(time: number, delta: number, interactPressed: boolean): void {
@@ -146,7 +156,7 @@ export class CoreLoopSystem {
       return;
     }
 
-    this.objective = this.progression.getObjective(this.economy.getMoney());
+    this.objective = this.getBaseObjective();
     this.setInteraction(false);
   }
 
@@ -255,28 +265,47 @@ export class CoreLoopSystem {
 
   private updateNavigationMarkers(): void {
     const stage = this.progression.getStage();
-    const catEncounter = this.encounters.find(
-      (encounter) => encounter.pet.petId === 'cat',
-    );
+    const catEncounter = this.catEncounter;
+    const distanceX =
+      catEncounter === undefined ? 0 : this.player.x - catEncounter.pet.x;
+    const distanceY =
+      catEncounter === undefined ? 0 : this.player.y - catEncounter.pet.y;
     const closeToCat =
       catEncounter !== undefined &&
-      Phaser.Math.Distance.Between(
-        this.player.x,
-        this.player.y,
-        catEncounter.pet.x,
-        catEncounter.pet.y,
-      ) < 220;
-
-    this.navigationMarkers.park.setVisible(
+      distanceX * distanceX + distanceY * distanceY < 220 * 220;
+    const parkVisible =
       stage === ProgressionStage.EarnForPark ||
-        stage === ProgressionStage.UnlockPark,
-    );
-    this.navigationMarkers.cat.setVisible(
-      stage === ProgressionStage.StealParkPet && !closeToCat,
-    );
-    this.navigationMarkers.centralHub.setVisible(
-      stage === ProgressionStage.ParkComplete,
-    );
+      stage === ProgressionStage.UnlockPark;
+    const catVisible = stage === ProgressionStage.StealParkPet && !closeToCat;
+    const centralHubVisible = stage === ProgressionStage.ParkComplete;
+
+    if (parkVisible !== this.parkMarkerVisible) {
+      this.parkMarkerVisible = parkVisible;
+      this.navigationMarkers.park.setVisible(parkVisible);
+    }
+    if (catVisible !== this.catMarkerVisible) {
+      this.catMarkerVisible = catVisible;
+      this.navigationMarkers.cat.setVisible(catVisible);
+    }
+    if (centralHubVisible !== this.centralHubMarkerVisible) {
+      this.centralHubMarkerVisible = centralHubVisible;
+      this.navigationMarkers.centralHub.setVisible(centralHubVisible);
+    }
+  }
+
+  private getBaseObjective(): string {
+    const stage = this.progression.getStage();
+    const displayedMoney = this.economy.getDisplayedMoney();
+    if (
+      stage !== this.cachedObjectiveStage ||
+      displayedMoney !== this.cachedObjectiveMoney
+    ) {
+      this.cachedObjectiveStage = stage;
+      this.cachedObjectiveMoney = displayedMoney;
+      this.cachedBaseObjective = this.progression.getObjective(displayedMoney);
+    }
+
+    return this.cachedBaseObjective;
   }
 
   private createTheftFlash(encounter: PetEncounter): void {

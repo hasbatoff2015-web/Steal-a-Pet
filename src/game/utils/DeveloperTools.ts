@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 
 import type { PetId } from '../data/pets';
 
+const SNAPSHOT_INTERVAL_MS = 250;
+
 interface DeveloperActions {
   interact: () => void;
   dash: () => void;
@@ -23,6 +25,8 @@ export class DeveloperTools {
   private readonly resetSave: Phaser.Input.Keyboard.Key;
   private readonly panel: HTMLDivElement;
   private readonly stateOutput: HTMLOutputElement;
+  private nextSnapshotAt = 0;
+  private lastSnapshot = '';
 
   public constructor(
     scene: Phaser.Scene,
@@ -83,9 +87,7 @@ export class DeveloperTools {
     document.body.append(this.panel);
   }
 
-  public update(): void {
-    this.stateOutput.textContent = this.actions.getSnapshot();
-
+  public update(time: number): void {
     if (Phaser.Input.Keyboard.JustDown(this.toDog)) {
       this.actions.toPet('dog');
     }
@@ -103,6 +105,17 @@ export class DeveloperTools {
     }
     if (Phaser.Input.Keyboard.JustDown(this.resetSave)) {
       this.actions.resetSave();
+    }
+
+    if (time < this.nextSnapshotAt) {
+      return;
+    }
+
+    this.nextSnapshotAt = time + SNAPSHOT_INTERVAL_MS;
+    const snapshot = this.actions.getSnapshot();
+    if (snapshot !== this.lastSnapshot) {
+      this.lastSnapshot = snapshot;
+      this.stateOutput.textContent = snapshot;
     }
   }
 
