@@ -1,3 +1,5 @@
+import type { PetId } from './pets';
+
 export enum ZoneId {
   StarterSuburb = 'STARTER_SUBURB',
   Park = 'PARK',
@@ -11,6 +13,7 @@ export interface ZoneGateDefinition {
   readonly zoneId: ZoneId;
   readonly displayName: string;
   readonly cost: number;
+  readonly requiredPetId?: PetId;
 }
 
 export const PARK_GATE_DEFINITION: ZoneGateDefinition = {
@@ -18,4 +21,12 @@ export const PARK_GATE_DEFINITION: ZoneGateDefinition = {
   zoneId: ZoneId.Park,
   displayName: 'PARK',
   cost: 25,
+};
+
+export const CENTRAL_HUB_GATE_DEFINITION: ZoneGateDefinition = {
+  id: 'central-hub-west-gate',
+  zoneId: ZoneId.CentralHub,
+  displayName: 'CENTRAL HUB',
+  cost: 75,
+  requiredPetId: 'cat',
 };

@@ -10,9 +10,14 @@ interface DeveloperActions {
   toPet: (petId: PetId) => void;
   toHome: () => void;
   toParkGate: () => void;
+  toCentralHubGate: () => void;
+  toUpgradeStation: () => void;
   catchActive: () => void;
+  cycleCatReturnTestPosition: () => void;
   addMoney: (amount: number) => void;
+  resetMoney: () => void;
   resetSave: () => void;
+  testV1Migration: () => void;
   getSnapshot: () => string;
 }
 
@@ -75,13 +80,25 @@ export class DeveloperTools {
       this.stateOutput,
       this.createButton('К СОБАКЕ', 'dev-to-dog', () => actions.toPet('dog')),
       this.createButton('К КОТУ', 'dev-to-cat', () => actions.toPet('cat')),
+      this.createButton('К ЛИСЕ', 'dev-to-fox', () => actions.toPet('fox')),
       this.createButton('К PARK', 'dev-to-gate', actions.toParkGate),
+      this.createButton('К HUB', 'dev-to-hub-gate', actions.toCentralHubGate),
+      this.createButton('К UPGRADE', 'dev-to-upgrade', actions.toUpgradeStation),
       this.createButton('+25', 'dev-add-money', () => actions.addMoney(25)),
+      this.createButton('+75', 'dev-add-money-75', () => actions.addMoney(75)),
+      this.createButton('+50', 'dev-add-money-50', () => actions.addMoney(50)),
+      this.createButton('0 МОНЕТ', 'dev-reset-money', actions.resetMoney),
       this.createButton('ДЕЙСТВИЕ', 'dev-interact', actions.interact),
       this.createButton('РЫВОК', 'dev-dash', actions.dash),
       this.createButton('ДОМОЙ', 'dev-home', actions.toHome),
       this.createButton('ПОЙМАТЬ', 'dev-catch', actions.catchActive),
+      this.createButton(
+        'CAT RETURN POS',
+        'dev-cat-return-position',
+        actions.cycleCatReturnTestPosition,
+      ),
       this.createButton('RESET SAVE', 'dev-reset-save', actions.resetSave),
+      this.createButton('TEST V1 MIGRATION', 'dev-test-v1-migration', actions.testV1Migration),
     );
 
     document.body.append(this.panel);

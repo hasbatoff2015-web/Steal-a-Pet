@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { PET_CONFIG, WORLD } from '../config/gameplay';
 import { PET_ENCOUNTER_DEFINITIONS } from '../data/encounters';
 import { getPetDefinition, type PetId } from '../data/pets';
+import { FAST_DASH_UPGRADE } from '../data/upgrades';
 import { ZoneId } from '../data/zones';
 import { OwnerState } from '../entities/OwnerNpc';
 import { OwnerNpc } from '../entities/OwnerNpc';
@@ -17,6 +18,7 @@ import { PetEncounter } from '../systems/PetEncounter';
 import { PlayerPathHistory } from '../systems/PlayerPathHistory';
 import { ProgressionSystem } from '../systems/ProgressionSystem';
 import { type GameSaveData, SaveSystem } from '../systems/SaveSystem';
+import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ZoneGateSystem } from '../systems/ZoneGateSystem';
 import { Hud } from '../ui/Hud';
 import { createPrototypeTextures } from '../utils/createPrototypeTextures';
@@ -29,6 +31,7 @@ export class WorldScene extends Phaser.Scene {
   private economy!: EconomySystem;
   private progression!: ProgressionSystem;
   private saveSystem!: SaveSystem;
+  private upgradeSystem!: UpgradeSystem;
   private pathHistory!: PlayerPathHistory;
   private encounters: readonly PetEncounter[] = [];
   private coreLoop!: CoreLoopSystem;
@@ -37,6 +40,7 @@ export class WorldScene extends Phaser.Scene {
   private saveTimer: Phaser.Time.TimerEvent | null = null;
   private developerTools: DeveloperTools | null = null;
   private suppressSaveOnShutdown = false;
+  private catReturnTestPositionIndex = 0;
 
   public constructor() {
     super({ key: 'WorldScene' });
@@ -48,20 +52,31 @@ export class WorldScene extends Phaser.Scene {
     this.saveSystem = new SaveSystem();
     const savedGame = this.saveSystem.load();
     this.economy = new EconomySystem(savedGame.money);
-    this.progression = new ProgressionSystem({
-      deliveredPetIds: savedGame.deliveredPetIds,
-      unlockedZones: savedGame.unlockedZones,
-    });
+    this.upgradeSystem = new UpgradeSystem(
+      this.economy,
+      savedGame.purchasedUpgradeIds,
+    );
+    this.progression = new ProgressionSystem(
+      () => this.upgradeSystem.isPurchased(FAST_DASH_UPGRADE.id),
+      {
+        deliveredPetIds: savedGame.deliveredPetIds,
+        unlockedZones: savedGame.unlockedZones,
+      },
+    );
     this.progression.updateForMoney(this.economy.getMoney());
 
     this.world = new WorldBuilder(this).build(
       this.progression.isZoneUnlocked(ZoneId.Park),
+      this.progression.isZoneUnlocked(ZoneId.CentralHub),
+      this.progression.isPetDelivered('fox'),
+      this.upgradeSystem.isPurchased(FAST_DASH_UPGRADE.id),
     );
     this.player = new Player(
       this,
       this.world.playerSpawn.x,
       this.world.playerSpawn.y,
     );
+    this.upgradeSystem.connectEffectTarget(this.player);
     this.inputController = new InputController(this);
     this.pathHistory = new PlayerPathHistory(
       this.player,
@@ -76,7 +91,7 @@ export class WorldScene extends Phaser.Scene {
     );
     this.encounters = this.createEncounters(baseSystem);
     const gateSystem = new ZoneGateSystem(
-      [this.world.parkGate],
+      [this.world.parkGate, this.world.centralHubGate],
       this.economy,
       this.progression,
     );
@@ -89,6 +104,8 @@ export class WorldScene extends Phaser.Scene {
       gateSystem,
       economy: this.economy,
       progression: this.progression,
+      upgradeSystem: this.upgradeSystem,
+      upgradeStation: this.world.upgradeStation,
       pathHistory: this.pathHistory,
       hud: this.hud,
       input: this.inputController,
@@ -96,6 +113,8 @@ export class WorldScene extends Phaser.Scene {
         park: this.world.parkNavigationMarkerView,
         cat: this.world.catNavigationMarkerView,
         centralHub: this.world.centralHubMarkerView,
+        fox: this.world.foxNavigationMarkerView,
+        upgrade: this.world.upgradeNavigationMarkerView,
       },
       onProgressChanged: () => this.persistProgress(),
     });
@@ -118,7 +137,8 @@ export class WorldScene extends Phaser.Scene {
     );
     const restoredProgress =
       savedGame.deliveredPetIds.length > 0 ||
-      savedGame.parkUnlocked ||
+      savedGame.unlockedZones.length > 1 ||
+      savedGame.purchasedUpgradeIds.length > 0 ||
       savedGame.money > 0;
     this.hud.showToast(
       restoredProgress
@@ -185,6 +205,7 @@ export class WorldScene extends Phaser.Scene {
         ownerHome,
         definition.ownerVisualKey,
         definition.chase,
+        definition.returnRoutes,
       );
       const chase = new ChaseSystem(owner, definition.chase);
       const encounter = new PetEncounter(definition, pet, owner, chase);
@@ -235,9 +256,22 @@ export class WorldScene extends Phaser.Scene {
           this.world.parkGateInteractionPoint.x,
           this.world.parkGateInteractionPoint.y,
         ),
+      toCentralHubGate: () =>
+        this.player.setPosition(
+          this.world.centralHubGateInteractionPoint.x,
+          this.world.centralHubGateInteractionPoint.y,
+        ),
+      toUpgradeStation: () =>
+        this.player.setPosition(
+          this.world.upgradeStationPosition.x,
+          this.world.upgradeStationPosition.y + 72,
+        ),
       catchActive: () => this.teleportActiveOwnerToPlayer(),
+      cycleCatReturnTestPosition: () => this.cycleCatReturnTestPosition(),
       addMoney: (amount) => this.economy.addMoney(amount),
+      resetMoney: () => this.economy.spend(this.economy.getMoney()),
       resetSave: () => this.resetSave(),
+      testV1Migration: () => this.testV1Migration(),
       getSnapshot: () => this.getDeveloperSnapshot(),
     });
   }
@@ -261,6 +295,21 @@ export class WorldScene extends Phaser.Scene {
     activeEncounter?.owner.setPosition(this.player.x, this.player.y);
   }
 
+  private cycleCatReturnTestPosition(): void {
+    const positions = [
+      { x: 1220, y: 340 },
+      { x: 1510, y: 620 },
+      { x: 1100, y: 760 },
+      { x: 900, y: 1250 },
+      { x: 700, y: 2225 },
+    ] as const;
+    const position = positions[this.catReturnTestPositionIndex % positions.length];
+    this.catReturnTestPositionIndex += 1;
+    if (position !== undefined) {
+      this.player.setPosition(position.x, position.y);
+    }
+  }
+
   private getDeveloperSnapshot(): string {
     return [
       `stage=${this.progression.getStage()}`,
@@ -273,8 +322,14 @@ export class WorldScene extends Phaser.Scene {
       `limit=${this.game.loop.fpsLimit}`,
       `pos=${this.player.x.toFixed(0)},${this.player.y.toFixed(0)}`,
       `park=${this.progression.isZoneUnlocked(ZoneId.Park)}`,
+      `hub=${this.progression.isZoneUnlocked(ZoneId.CentralHub)}`,
+      `dashCd=${this.player.getDashCooldownMs()}`,
+      `upgrades=${this.upgradeSystem.getPurchasedUpgradeIds().join(',') || 'none'}`,
       `pets=${this.encounters
         .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
+        .join(',')}`,
+      `owners=${this.encounters
+        .map((encounter) => `${encounter.pet.petId}:${encounter.owner.getState()}`)
         .join(',')}`,
     ].join(' · ');
   }
@@ -286,12 +341,11 @@ export class WorldScene extends Phaser.Scene {
 
     const progression = this.progression.getSnapshot();
     const saveData: GameSaveData = {
-      saveVersion: 1,
+      saveVersion: 2,
       money: this.economy.getMoney(),
-      parkUnlocked: progression.unlockedZones.includes(ZoneId.Park),
       deliveredPetIds: progression.deliveredPetIds,
       unlockedZones: progression.unlockedZones,
-      campaignStage: progression.campaignStage,
+      purchasedUpgradeIds: this.upgradeSystem.getPurchasedUpgradeIds(),
     };
     this.saveSystem.save(saveData);
   }
@@ -301,6 +355,14 @@ export class WorldScene extends Phaser.Scene {
     this.saveTimer?.remove(false);
     this.saveSystem.clear();
     window.location.reload();
+  }
+
+  private testV1Migration(): void {
+    this.suppressSaveOnShutdown = true;
+    this.saveTimer?.remove(false);
+    if (this.saveSystem.installLegacyV1FixtureForDevelopment()) {
+      window.location.reload();
+    }
   }
 
   private resizeCamera(gameSize: Phaser.Structs.Size): void {

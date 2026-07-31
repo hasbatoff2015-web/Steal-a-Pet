@@ -1,5 +1,10 @@
 import type { PetId } from '../data/pets';
-import { PARK_GATE_DEFINITION, ZoneId } from '../data/zones';
+import { FAST_DASH_UPGRADE } from '../data/upgrades';
+import {
+  CENTRAL_HUB_GATE_DEFINITION,
+  PARK_GATE_DEFINITION,
+  ZoneId,
+} from '../data/zones';
 
 export enum ProgressionStage {
   FirstPet = 'FIRST_PET',
@@ -7,7 +12,13 @@ export enum ProgressionStage {
   UnlockPark = 'UNLOCK_PARK',
   StealParkPet = 'STEAL_PARK_PET',
   ReturnParkPet = 'RETURN_PARK_PET',
-  ParkComplete = 'PARK_COMPLETE',
+  EarnForCentralHub = 'EARN_FOR_CENTRAL_HUB',
+  UnlockCentralHub = 'UNLOCK_CENTRAL_HUB',
+  StealHubPet = 'STEAL_HUB_PET',
+  ReturnHubPet = 'RETURN_HUB_PET',
+  EarnForDashUpgrade = 'EARN_FOR_DASH_UPGRADE',
+  BuyDashUpgrade = 'BUY_DASH_UPGRADE',
+  CentralHubComplete = 'CENTRAL_HUB_COMPLETE',
 }
 
 export interface ProgressionSnapshot {
@@ -28,7 +39,10 @@ export class ProgressionSystem {
   private activePetId: PetId | null;
   private campaignStage = ProgressionStage.FirstPet;
 
-  public constructor(initialState: ProgressionInitialState = {}) {
+  public constructor(
+    private readonly isFastDashPurchased: () => boolean,
+    initialState: ProgressionInitialState = {},
+  ) {
     for (const petId of initialState.deliveredPetIds ?? []) {
       this.deliveredPetIds.add(petId);
     }
@@ -63,6 +77,10 @@ export class ProgressionSystem {
     this.updateForMoney(money);
   }
 
+  public notifyUpgradePurchased(money: number): void {
+    this.updateForMoney(money);
+  }
+
   public isPetDelivered(petId: PetId): boolean {
     return this.deliveredPetIds.has(petId);
   }
@@ -87,8 +105,20 @@ export class ProgressionSystem {
         return 'Исследуй PARK и укради Кота';
       case ProgressionStage.ReturnParkPet:
         return 'Убегай! Верни Кота на базу';
-      case ProgressionStage.ParkComplete:
-        return 'PARK пройден — путь ведёт в CENTRAL HUB';
+      case ProgressionStage.EarnForCentralHub:
+        return `Накопи ${CENTRAL_HUB_GATE_DEFINITION.cost} монет для CENTRAL HUB (${Math.floor(money)}/${CENTRAL_HUB_GATE_DEFINITION.cost})`;
+      case ProgressionStage.UnlockCentralHub:
+        return 'Открой CENTRAL HUB';
+      case ProgressionStage.StealHubPet:
+        return 'Исследуй CENTRAL HUB и укради Лису';
+      case ProgressionStage.ReturnHubPet:
+        return 'Убегай! Верни Лису на базу';
+      case ProgressionStage.EarnForDashUpgrade:
+        return `Накопи ${FAST_DASH_UPGRADE.cost} монет на «Быстрый рывок» (${Math.floor(money)}/${FAST_DASH_UPGRADE.cost})`;
+      case ProgressionStage.BuyDashUpgrade:
+        return 'Купи улучшение «Быстрый рывок» на базе';
+      case ProgressionStage.CentralHubComplete:
+        return 'Следующая зона: RICH DISTRICT · СКОРО';
     }
   }
 
@@ -101,8 +131,24 @@ export class ProgressionSystem {
   }
 
   private deriveStage(money: number): ProgressionStage {
+    if (this.isFastDashPurchased()) {
+      return ProgressionStage.CentralHubComplete;
+    }
+    if (this.deliveredPetIds.has('fox')) {
+      return money >= FAST_DASH_UPGRADE.cost
+        ? ProgressionStage.BuyDashUpgrade
+        : ProgressionStage.EarnForDashUpgrade;
+    }
+    if (this.activePetId === 'fox') {
+      return ProgressionStage.ReturnHubPet;
+    }
     if (this.deliveredPetIds.has('cat')) {
-      return ProgressionStage.ParkComplete;
+      if (!this.unlockedZones.has(ZoneId.CentralHub)) {
+        return money >= CENTRAL_HUB_GATE_DEFINITION.cost
+          ? ProgressionStage.UnlockCentralHub
+          : ProgressionStage.EarnForCentralHub;
+      }
+      return ProgressionStage.StealHubPet;
     }
     if (this.activePetId === 'cat') {
       return ProgressionStage.ReturnParkPet;

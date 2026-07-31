@@ -55,6 +55,19 @@ export function createPrototypeTextures(scene: Phaser.Scene): void {
     graphics.fillRoundedRect(14, 39, 24, 13, 6);
   });
 
+  generate(scene, 'hub-owner', 52, 58, (graphics) => {
+    graphics.fillStyle(0x2f728f);
+    graphics.fillCircle(26, 24, 19);
+    graphics.fillStyle(0xbdeeff);
+    graphics.fillCircle(20, 19, 5);
+    graphics.fillStyle(0xffffff);
+    graphics.fillCircle(32, 18, 5);
+    graphics.fillStyle(0x153e55);
+    graphics.fillCircle(33, 18, 2);
+    graphics.fillStyle(0xf0a24a);
+    graphics.fillRoundedRect(14, 39, 24, 13, 6);
+  });
+
   generate(scene, 'dog', 58, 48, (graphics) => {
     graphics.fillStyle(0x8b5a2b);
     graphics.fillTriangle(10, 12, 20, 2, 22, 17);
@@ -97,5 +110,27 @@ export function createPrototypeTextures(scene: Phaser.Scene): void {
     graphics.fillStyle(0x8e60bd);
     graphics.fillRoundedRect(16, 40, 8, 9, 4);
     graphics.fillRoundedRect(31, 40, 8, 9, 4);
+  });
+
+  generate(scene, 'fox', 76, 54, (graphics) => {
+    graphics.fillStyle(0xb84f24);
+    graphics.fillTriangle(16, 18, 22, 1, 31, 18);
+    graphics.fillTriangle(49, 18, 43, 1, 35, 18);
+    graphics.fillStyle(0xf28a32);
+    graphics.fillEllipse(33, 27, 39, 31);
+    graphics.fillTriangle(28, 26, 57, 35, 29, 39);
+    graphics.fillStyle(0xffdfb0);
+    graphics.fillTriangle(31, 26, 57, 35, 31, 35);
+    graphics.fillStyle(0xf28a32);
+    graphics.fillEllipse(63, 34, 23, 15);
+    graphics.fillStyle(0xfff0cf);
+    graphics.fillEllipse(70, 34, 10, 11);
+    graphics.fillStyle(0x2d2630);
+    graphics.fillCircle(27, 23, 3);
+    graphics.fillCircle(39, 23, 3);
+    graphics.fillCircle(56, 35, 2);
+    graphics.fillStyle(0xc76129);
+    graphics.fillRoundedRect(22, 42, 8, 9, 4);
+    graphics.fillRoundedRect(37, 42, 8, 9, 4);
   });
 }

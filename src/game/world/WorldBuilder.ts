@@ -2,15 +2,21 @@ import Phaser from 'phaser';
 
 import { DEPTH, WORLD } from '../config/gameplay';
 import { PROTOTYPE_LAYOUT, type PrototypeWorldLayout } from '../data/worldLayout';
-import { PARK_GATE_DEFINITION } from '../data/zones';
+import { FAST_DASH_UPGRADE } from '../data/upgrades';
+import { CENTRAL_HUB_GATE_DEFINITION, PARK_GATE_DEFINITION } from '../data/zones';
+import { UpgradeStation } from './UpgradeStation';
 import { ZoneGate } from './ZoneGate';
 
 export interface WorldBuildResult extends PrototypeWorldLayout {
   obstacles: Phaser.Physics.Arcade.StaticGroup;
   parkGate: ZoneGate;
+  centralHubGate: ZoneGate;
+  upgradeStation: UpgradeStation;
   parkNavigationMarkerView: Phaser.GameObjects.Container;
   catNavigationMarkerView: Phaser.GameObjects.Container;
   centralHubMarkerView: Phaser.GameObjects.Container;
+  foxNavigationMarkerView: Phaser.GameObjects.Container;
+  upgradeNavigationMarkerView: Phaser.GameObjects.Container;
 }
 
 interface BuildingOptions {
@@ -30,7 +36,12 @@ export class WorldBuilder {
     this.obstacles = scene.physics.add.staticGroup();
   }
 
-  public build(parkUnlocked: boolean): WorldBuildResult {
+  public build(
+    parkUnlocked: boolean,
+    centralHubUnlocked: boolean,
+    foxDelivered: boolean,
+    fastDashPurchased: boolean,
+  ): WorldBuildResult {
     this.scene.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
 
     this.drawZoneGrounds();
@@ -41,10 +52,18 @@ export class WorldBuilder {
       parkGate.unlock(false);
     }
     this.drawPlayerBase();
+    const upgradeStation = this.createUpgradeStation();
+    upgradeStation.setState(foxDelivered, fastDashPurchased);
     this.drawNpcBase();
     this.drawParkEnvironment();
     this.drawParkEncounter();
     this.drawParkBoundary();
+    const centralHubGate = this.createCentralHubGate();
+    if (centralHubUnlocked) {
+      centralHubGate.unlock(false);
+    }
+    this.drawCentralHubEnvironment();
+    this.drawCentralHubEncounter();
     this.drawFutureDistricts();
     this.drawEnvironment();
     this.drawZoneLabels();
@@ -89,7 +108,29 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.centralHubMarker.x,
         PROTOTYPE_LAYOUT.centralHubMarker.y,
       ),
+      centralHubGatePosition: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.centralHubGatePosition.x,
+        PROTOTYPE_LAYOUT.centralHubGatePosition.y,
+      ),
+      centralHubGateInteractionPoint: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.centralHubGateInteractionPoint.x,
+        PROTOTYPE_LAYOUT.centralHubGateInteractionPoint.y,
+      ),
+      foxNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.foxNavigationMarker.x,
+        PROTOTYPE_LAYOUT.foxNavigationMarker.y,
+      ),
+      upgradeNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.upgradeNavigationMarker.x,
+        PROTOTYPE_LAYOUT.upgradeNavigationMarker.y,
+      ),
+      upgradeStationPosition: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.upgradeStationPosition.x,
+        PROTOTYPE_LAYOUT.upgradeStationPosition.y,
+      ),
       parkGate,
+      centralHubGate,
+      upgradeStation,
       parkNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.parkNavigationMarker,
         'PARK · 25 МОНЕТ',
@@ -102,8 +143,18 @@ export class WorldBuilder {
       ),
       centralHubMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.centralHubMarker,
-        'СЛЕДУЮЩАЯ ЦЕЛЬ:\nCENTRAL HUB →',
+        'CENTRAL HUB · 75 МОНЕТ',
         0x71d8ff,
+      ),
+      foxNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.foxNavigationMarker,
+        'ЦЕЛЬ: ЛИСА',
+        0xff9d45,
+      ),
+      upgradeNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.upgradeNavigationMarker,
+        'БЫСТРЫЙ РЫВОК · 50',
+        0x76e69b,
       ),
     };
   }
@@ -276,6 +327,91 @@ export class WorldBuilder {
     );
   }
 
+  private createUpgradeStation(): UpgradeStation {
+    const { x, y } = PROTOTYPE_LAYOUT.upgradeStationPosition;
+    const highlight = this.scene.add
+      .circle(x, y + 18, 72, 0x8290a0, 0.12)
+      .setStrokeStyle(3, 0x8290a0, 0.5)
+      .setDepth(y - 3);
+    this.scene.add
+      .ellipse(x + 8, y + 24, 118, 36, 0x18324a, 0.2)
+      .setDepth(y - 2);
+    const bench = this.scene.add
+      .rectangle(x, y, 112, 54, 0x99633e)
+      .setStrokeStyle(6, 0xffd793, 0.92)
+      .setDepth(y);
+    this.obstacles.add(bench);
+    this.scene.add
+      .rectangle(x - 34, y - 34, 16, 42, 0x4e8fe8)
+      .setStrokeStyle(3, 0xffffff, 0.7)
+      .setDepth(y + 1);
+    this.scene.add
+      .rectangle(x + 34, y - 28, 30, 28, 0x76e69b)
+      .setStrokeStyle(3, 0xffffff, 0.7)
+      .setDepth(y + 1);
+
+    const statusLabel = this.scene.add
+      .text(x, y - 82, 'УЛУЧШЕНИЕ\nОТКРОЕТСЯ ПОЗЖЕ', {
+        align: 'center',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '15px',
+        fontStyle: 'bold',
+        color: '#4c5260',
+        backgroundColor: '#eef1f4db',
+        padding: { x: 10, y: 5 },
+      })
+      .setOrigin(0.5)
+      .setDepth(y + 2);
+
+    return new UpgradeStation(
+      FAST_DASH_UPGRADE,
+      new Phaser.Math.Vector2(x, y + 72),
+      statusLabel,
+      highlight,
+    );
+  }
+
+  private createCentralHubGate(): ZoneGate {
+    const { x, y } = PROTOTYPE_LAYOUT.centralHubGatePosition;
+    const upperPost = this.scene.add
+      .rectangle(x, y - 92, 38, 46, 0x355f78)
+      .setStrokeStyle(5, 0xffffff, 0.78)
+      .setDepth(y - 40);
+    const lowerPost = this.scene.add
+      .rectangle(x, y + 92, 38, 46, 0x355f78)
+      .setStrokeStyle(5, 0xffffff, 0.78)
+      .setDepth(y + 115);
+    const crossbar = this.scene.add
+      .rectangle(x, y, 28, 164, 0xe75555)
+      .setStrokeStyle(4, 0xffffff, 0.9)
+      .setDepth(y + 3);
+    const statusLabel = this.scene.add
+      .text(x + 108, y - 6, 'CENTRAL HUB\n75 МОНЕТ', {
+        align: 'center',
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '17px',
+        fontStyle: 'bold',
+        color: '#173f56',
+        backgroundColor: '#e5f8ffed',
+        padding: { x: 11, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setDepth(y + 4);
+
+    const barrier = this.addInvisibleObstacle(x - 20, y - 95, 40, 190);
+    return new ZoneGate(
+      this.scene,
+      CENTRAL_HUB_GATE_DEFINITION,
+      new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.centralHubGateInteractionPoint.x,
+        PROTOTYPE_LAYOUT.centralHubGateInteractionPoint.y,
+      ),
+      barrier,
+      [upperPost, lowerPost, crossbar],
+      statusLabel,
+    );
+  }
+
   private drawPlayerBase(): void {
     const yard = this.scene.add.graphics().setDepth(DEPTH.ground + 4);
     yard.fillStyle(0xdff4af, 0.92);
@@ -426,53 +562,158 @@ export class WorldBuilder {
     const hedge = this.scene.add.graphics().setDepth(DEPTH.ground + 8);
     hedge.fillStyle(0x397f4c, 0.98);
     hedge.fillRoundedRect(1640, 0, 70, 555, 22);
-    hedge.fillRoundedRect(1640, 745, 70, 365, 22);
+    hedge.fillRoundedRect(1640, 745, 70, WORLD.height - 745, 22);
     hedge.lineStyle(6, 0x69ba63, 0.95);
     hedge.strokeRoundedRect(1640, 0, 70, 555, 22);
-    hedge.strokeRoundedRect(1640, 745, 70, 365, 22);
+    hedge.strokeRoundedRect(1640, 745, 70, WORLD.height - 745, 22);
 
     this.addInvisibleObstacle(1640, 0, 70, 555);
-    this.addInvisibleObstacle(1640, 745, 70, 365);
+    this.addInvisibleObstacle(1640, 745, 70, WORLD.height - 745);
+  }
 
-    const upperPost = this.scene.add
-      .rectangle(1675, 580, 42, 70, 0x355f78)
-      .setStrokeStyle(5, 0xffffff, 0.75)
-      .setDepth(650);
-    const lowerPost = this.scene.add
-      .rectangle(1675, 720, 42, 70, 0x355f78)
-      .setStrokeStyle(5, 0xffffff, 0.75)
-      .setDepth(720);
-    this.obstacles.add(upperPost);
-    this.obstacles.add(lowerPost);
-    this.addInvisibleObstacle(1648, 610, 54, 80);
+  private drawCentralHubEnvironment(): void {
+    const paths = this.scene.add.graphics().setDepth(DEPTH.ground + 4);
+    paths.lineStyle(150, 0xb58f69, 1);
+    paths.strokePoints(
+      [
+        new Phaser.Math.Vector2(1710, 650),
+        new Phaser.Math.Vector2(1910, 720),
+        new Phaser.Math.Vector2(2050, 900),
+        new Phaser.Math.Vector2(2260, 1110),
+        new Phaser.Math.Vector2(2320, 1640),
+      ],
+      false,
+      false,
+    );
+    paths.lineStyle(104, 0xf2ddb5, 1);
+    paths.strokePoints(
+      [
+        new Phaser.Math.Vector2(1710, 650),
+        new Phaser.Math.Vector2(1910, 720),
+        new Phaser.Math.Vector2(2050, 900),
+        new Phaser.Math.Vector2(2260, 1110),
+        new Phaser.Math.Vector2(2320, 1640),
+      ],
+      false,
+      false,
+    );
+
+    const plaza = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+    plaza.fillStyle(0xf7e6bc, 0.96);
+    plaza.fillCircle(2110, 1060, 260);
+    plaza.lineStyle(12, 0xc69d6e, 0.9);
+    plaza.strokeCircle(2110, 1060, 260);
+    plaza.fillStyle(0x55b9dc, 0.98);
+    plaza.fillCircle(2110, 1060, 104);
+    plaza.lineStyle(10, 0xe9fbff, 0.86);
+    plaza.strokeCircle(2110, 1060, 104);
+    plaza.fillStyle(0xffe18b, 1);
+    plaza.fillCircle(2110, 1060, 26);
+    this.addInvisibleObstacle(2020, 970, 180, 180);
 
     this.scene.add
-      .text(1618, 650, 'CENTRAL HUB →\nСЛЕДУЮЩИЙ ЭТАП', {
+      .text(2110, 1060, '⛲', {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '38px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(1120);
+
+    this.addBuilding({
+      x: 2210,
+      y: 520,
+      width: 280,
+      height: 150,
+      color: 0xffefc7,
+      roofColor: 0xd26c54,
+      label: 'КАФЕ',
+    });
+    this.addBuilding({
+      x: 2480,
+      y: 830,
+      width: 260,
+      height: 170,
+      color: 0xdff5ff,
+      roofColor: 0x428aaf,
+      label: 'МАГАЗИН',
+    });
+    this.addBuilding({
+      x: 1870,
+      y: 1550,
+      width: 230,
+      height: 190,
+      color: 0xffe5ae,
+      roofColor: 0xbf7a38,
+      label: 'ПОЧТА',
+    });
+
+    for (const [x, y] of [
+      [1810, 790],
+      [1910, 1190],
+      [2320, 1140],
+      [2480, 1320],
+    ] as const) {
+      this.scene.add.rectangle(x, y, 12, 68, 0x354c5e).setDepth(y);
+      this.scene.add
+        .circle(x, y - 38, 14, 0xffe99a, 0.95)
+        .setStrokeStyle(4, 0xffffff, 0.65)
+        .setDepth(y + 1);
+    }
+
+    for (const [x, y, color] of [
+      [1830, 950, 0xff7f9e],
+      [2400, 1030, 0x7bdc86],
+      [2020, 1310, 0x8d7cff],
+    ] as const) {
+      this.scene.add
+        .ellipse(x, y, 118, 46, color, 0.85)
+        .setStrokeStyle(5, 0xffffff, 0.65)
+        .setDepth(y);
+    }
+  }
+
+  private drawCentralHubEncounter(): void {
+    const yard = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+    yard.fillStyle(0xffdda3, 0.88);
+    yard.fillRoundedRect(2100, 1450, 500, 390, 34);
+    yard.lineStyle(8, 0xc77a38, 0.9);
+    yard.strokeRoundedRect(2100, 1450, 500, 390, 34);
+
+    this.addBuilding({
+      x: 2420,
+      y: 1505,
+      width: 270,
+      height: 120,
+      color: 0xffeed2,
+      roofColor: 0xc75c45,
+      label: 'ТЕРРАСА',
+    });
+
+    this.scene.add
+      .text(2195, 1490, 'ГОРОДСКОЙ\nДВОРИК', {
         align: 'center',
         fontFamily: 'Arial, sans-serif',
-        fontSize: '16px',
+        fontSize: '17px',
         fontStyle: 'bold',
-        color: '#ffffff',
-        backgroundColor: '#203f54e8',
-        padding: { x: 10, y: 6 },
+        color: '#74401d',
       })
-      .setOrigin(1, 0.5)
-      .setDepth(DEPTH.groundLabels + 1);
+      .setOrigin(0.5)
+      .setDepth(DEPTH.groundLabels);
   }
 
   private drawFutureDistricts(): void {
-    this.addGate(1760, 1460, 'RICH DISTRICT →', 0x337e78);
+    const boundary = this.scene.add.graphics().setDepth(DEPTH.ground + 9);
+    boundary.fillStyle(0x2f756f, 0.98);
+    boundary.fillRect(2630, 0, 66, WORLD.height);
+    boundary.lineStyle(6, 0x80d5ca, 0.88);
+    boundary.lineBetween(2633, 0, 2633, WORLD.height);
+    boundary.lineBetween(2693, 0, 2693, WORLD.height);
+    this.addInvisibleObstacle(2630, 0, 66, WORLD.height);
+
+    this.addGate(2663, 1460, 'RICH DISTRICT\nСЛЕДУЮЩИЙ РАЙОН · СКОРО', 0x337e78);
     this.addGate(2850, 650, 'VIP ESTATE', 0x7450a8);
 
-    this.addBuilding({
-      x: 2270,
-      y: 1080,
-      width: 420,
-      height: 280,
-      color: 0xffe6a3,
-      roofColor: 0xd99a37,
-      label: 'MARKET',
-    });
     this.addBuilding({
       x: 3020,
       y: 1080,

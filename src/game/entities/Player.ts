@@ -11,6 +11,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private dashEndsAt = 0;
   private dashAvailableAt = 0;
   private nextTrailAt = 0;
+  private dashCooldownMs: number = PLAYER_CONFIG.dashCooldownMs;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -41,7 +42,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (dashPressed && time >= this.dashAvailableAt) {
       this.dashDirection.copy(this.lastDirection);
       this.dashEndsAt = time + PLAYER_CONFIG.dashDurationMs;
-      this.dashAvailableAt = time + PLAYER_CONFIG.dashCooldownMs;
+      this.dashAvailableAt = time + this.dashCooldownMs;
       this.nextTrailAt = time;
     }
 
@@ -74,10 +75,26 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     return Phaser.Math.Clamp(
-      1 - (this.dashAvailableAt - time) / PLAYER_CONFIG.dashCooldownMs,
+      1 - (this.dashAvailableAt - time) / this.dashCooldownMs,
       0,
       1,
     );
+  }
+
+  public setDashCooldownMs(cooldownMs: number): void {
+    const nextCooldownMs = Math.max(1, cooldownMs);
+    const now = this.scene.time.now;
+    const remainingMs = Math.max(0, this.dashAvailableAt - now);
+    const elapsedMs = Math.max(0, this.dashCooldownMs - remainingMs);
+
+    this.dashCooldownMs = nextCooldownMs;
+    if (remainingMs > 0) {
+      this.dashAvailableAt = now + Math.max(0, nextCooldownMs - elapsedMs);
+    }
+  }
+
+  public getDashCooldownMs(): number {
+    return this.dashCooldownMs;
   }
 
   public applyCaughtFeedback(ownerPosition: Phaser.Math.Vector2): void {

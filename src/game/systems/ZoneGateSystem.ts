@@ -19,7 +19,11 @@ export class ZoneGateSystem {
   public findNearbyLockedGate(player: Player): ZoneGate | null {
     return (
       this.gates.find(
-        (gate) => !gate.isUnlocked() && gate.isPlayerNearby(player),
+        (gate) =>
+          !gate.isUnlocked() &&
+          (gate.definition.requiredPetId === undefined ||
+            this.progression.isPetDelivered(gate.definition.requiredPetId)) &&
+          gate.isPlayerNearby(player),
       ) ?? null
     );
   }

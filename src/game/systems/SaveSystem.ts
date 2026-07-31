@@ -1,37 +1,63 @@
 import { PET_DEFINITIONS, type PetId } from '../data/pets';
+import { UPGRADE_DEFINITIONS, type UpgradeId } from '../data/upgrades';
 import { ZoneId } from '../data/zones';
-import { ProgressionStage } from './ProgressionSystem';
 
-const SAVE_KEY = 'steal-a-pet.save.v1';
-const SAVE_VERSION = 1;
+const SAVE_KEY_V2 = 'steal-a-pet.save.v2';
+const LEGACY_SAVE_KEY_V1 = 'steal-a-pet.save.v1';
+const SAVE_VERSION = 2;
 
-export interface GameSaveData {
+const LEGACY_STAGES = new Set([
+  'FIRST_PET',
+  'EARN_FOR_PARK',
+  'UNLOCK_PARK',
+  'STEAL_PARK_PET',
+  'RETURN_PARK_PET',
+  'PARK_COMPLETE',
+]);
+
+interface LegacyGameSaveDataV1 {
   readonly saveVersion: 1;
   readonly money: number;
   readonly parkUnlocked: boolean;
+  readonly deliveredPetIds: readonly ('dog' | 'cat')[];
+  readonly unlockedZones: readonly ZoneId[];
+  readonly campaignStage: string;
+}
+
+export interface GameSaveData {
+  readonly saveVersion: 2;
+  readonly money: number;
   readonly deliveredPetIds: readonly PetId[];
   readonly unlockedZones: readonly ZoneId[];
-  readonly campaignStage: ProgressionStage;
+  readonly purchasedUpgradeIds: readonly UpgradeId[];
 }
 
 export class SaveSystem {
   public load(): GameSaveData {
     try {
-      const rawSave = window.localStorage.getItem(SAVE_KEY);
-      if (rawSave === null) {
-        return this.createDefaultSave();
+      const currentSave = this.parse(window.localStorage.getItem(SAVE_KEY_V2));
+      if (this.isValidSaveV2(currentSave)) {
+        return currentSave;
       }
 
-      const parsedSave: unknown = JSON.parse(rawSave);
-      return this.isValidSave(parsedSave) ? parsedSave : this.createDefaultSave();
+      const legacySave = this.parse(
+        window.localStorage.getItem(LEGACY_SAVE_KEY_V1),
+      );
+      if (this.isValidLegacySaveV1(legacySave)) {
+        const migratedSave = this.migrateV1(legacySave);
+        this.save(migratedSave);
+        return migratedSave;
+      }
     } catch {
-      return this.createDefaultSave();
+      // A missing or restricted storage implementation starts a safe new game.
     }
+
+    return this.createDefaultSave();
   }
 
   public save(data: GameSaveData): boolean {
     try {
-      window.localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      window.localStorage.setItem(SAVE_KEY_V2, JSON.stringify(data));
       return true;
     } catch {
       return false;
@@ -40,9 +66,30 @@ export class SaveSystem {
 
   public clear(): void {
     try {
-      window.localStorage.removeItem(SAVE_KEY);
+      window.localStorage.removeItem(SAVE_KEY_V2);
+      window.localStorage.removeItem(LEGACY_SAVE_KEY_V1);
     } catch {
       // Storage may be unavailable in restricted browser modes.
+    }
+  }
+
+  public installLegacyV1FixtureForDevelopment(): boolean {
+    try {
+      window.localStorage.removeItem(SAVE_KEY_V2);
+      window.localStorage.setItem(
+        LEGACY_SAVE_KEY_V1,
+        JSON.stringify({
+          saveVersion: 1,
+          money: 31,
+          parkUnlocked: true,
+          deliveredPetIds: ['dog', 'cat'],
+          unlockedZones: [ZoneId.StarterSuburb, ZoneId.Park],
+          campaignStage: 'PARK_COMPLETE',
+        } satisfies LegacyGameSaveDataV1),
+      );
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -50,38 +97,90 @@ export class SaveSystem {
     return {
       saveVersion: SAVE_VERSION,
       money: 0,
-      parkUnlocked: false,
       deliveredPetIds: [],
       unlockedZones: [ZoneId.StarterSuburb],
-      campaignStage: ProgressionStage.FirstPet,
+      purchasedUpgradeIds: [],
     };
   }
 
-  private isValidSave(value: unknown): value is GameSaveData {
+  private migrateV1(save: LegacyGameSaveDataV1): GameSaveData {
+    const unlockedZones = new Set(save.unlockedZones);
+    unlockedZones.add(ZoneId.StarterSuburb);
+    if (save.parkUnlocked) {
+      unlockedZones.add(ZoneId.Park);
+    }
+
+    return {
+      saveVersion: SAVE_VERSION,
+      money: save.money,
+      deliveredPetIds: [...save.deliveredPetIds],
+      unlockedZones: [...unlockedZones],
+      purchasedUpgradeIds: [],
+    };
+  }
+
+  private parse(rawSave: string | null): unknown {
+    if (rawSave === null) {
+      return null;
+    }
+    return JSON.parse(rawSave) as unknown;
+  }
+
+  private isValidSaveV2(value: unknown): value is GameSaveData {
     if (!this.isRecord(value) || value.saveVersion !== SAVE_VERSION) {
       return false;
     }
 
-    if (
-      typeof value.money !== 'number' ||
-      !Number.isFinite(value.money) ||
-      value.money < 0 ||
-      typeof value.parkUnlocked !== 'boolean'
-    ) {
+    const structurallyValid =
+      this.isValidMoney(value.money) &&
+      Array.isArray(value.deliveredPetIds) &&
+      value.deliveredPetIds.every((petId) => this.isPetId(petId)) &&
+      Array.isArray(value.unlockedZones) &&
+      value.unlockedZones.every((zoneId) => this.isZoneId(zoneId)) &&
+      value.unlockedZones.includes(ZoneId.StarterSuburb) &&
+      Array.isArray(value.purchasedUpgradeIds) &&
+      value.purchasedUpgradeIds.every((upgradeId) => this.isUpgradeId(upgradeId));
+    if (!structurallyValid) {
+      return false;
+    }
+
+    const deliveredPetIds = value.deliveredPetIds as readonly PetId[];
+    const unlockedZones = value.unlockedZones as readonly ZoneId[];
+    const purchasedUpgradeIds = value.purchasedUpgradeIds as readonly UpgradeId[];
+    return !(
+      (unlockedZones.includes(ZoneId.CentralHub) &&
+        !unlockedZones.includes(ZoneId.Park)) ||
+      (deliveredPetIds.includes('cat') && !unlockedZones.includes(ZoneId.Park)) ||
+      (deliveredPetIds.includes('fox') &&
+        !unlockedZones.includes(ZoneId.CentralHub)) ||
+      (purchasedUpgradeIds.includes('fast-dash') &&
+        !deliveredPetIds.includes('fox'))
+    );
+  }
+
+  private isValidLegacySaveV1(value: unknown): value is LegacyGameSaveDataV1 {
+    if (!this.isRecord(value) || value.saveVersion !== 1) {
       return false;
     }
 
     if (
+      !this.isValidMoney(value.money) ||
+      typeof value.parkUnlocked !== 'boolean' ||
       !Array.isArray(value.deliveredPetIds) ||
-      !value.deliveredPetIds.every((petId) => this.isPetId(petId)) ||
+      !value.deliveredPetIds.every((petId) => petId === 'dog' || petId === 'cat') ||
       !Array.isArray(value.unlockedZones) ||
       !value.unlockedZones.every((zoneId) => this.isZoneId(zoneId)) ||
-      !this.isProgressionStage(value.campaignStage)
+      typeof value.campaignStage !== 'string' ||
+      !LEGACY_STAGES.has(value.campaignStage)
     ) {
       return false;
     }
 
     return value.parkUnlocked === value.unlockedZones.includes(ZoneId.Park);
+  }
+
+  private isValidMoney(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {
@@ -92,14 +191,16 @@ export class SaveSystem {
     return typeof value === 'string' && value in PET_DEFINITIONS;
   }
 
-  private isZoneId(value: unknown): value is ZoneId {
-    return typeof value === 'string' && Object.values(ZoneId).includes(value as ZoneId);
-  }
-
-  private isProgressionStage(value: unknown): value is ProgressionStage {
+  private isUpgradeId(value: unknown): value is UpgradeId {
     return (
       typeof value === 'string' &&
-      Object.values(ProgressionStage).includes(value as ProgressionStage)
+      Object.values(UPGRADE_DEFINITIONS).some(
+        (definition) => definition.id === value,
+      )
     );
+  }
+
+  private isZoneId(value: unknown): value is ZoneId {
+    return typeof value === 'string' && Object.values(ZoneId).includes(value as ZoneId);
   }
 }

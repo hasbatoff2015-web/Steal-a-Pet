@@ -1,15 +1,18 @@
 import Phaser from 'phaser';
 
 import { PET_CONFIG } from '../config/gameplay';
+import { FAST_DASH_UPGRADE } from '../data/upgrades';
 import { Player } from '../entities/Player';
 import { InputController } from '../input/InputController';
 import { Hud } from '../ui/Hud';
 import type { ZoneGate } from '../world/ZoneGate';
+import type { UpgradeStation } from '../world/UpgradeStation';
 import { BaseSystem } from './BaseSystem';
 import { EconomySystem } from './EconomySystem';
 import { PetEncounter } from './PetEncounter';
 import { PlayerPathHistory } from './PlayerPathHistory';
 import { ProgressionStage, ProgressionSystem } from './ProgressionSystem';
+import { UpgradePurchaseResult, UpgradeSystem } from './UpgradeSystem';
 import { GateUnlockResult, ZoneGateSystem } from './ZoneGateSystem';
 
 export enum CoreLoopPhase {
@@ -21,6 +24,8 @@ interface NavigationMarkers {
   park: Phaser.GameObjects.Container;
   cat: Phaser.GameObjects.Container;
   centralHub: Phaser.GameObjects.Container;
+  fox: Phaser.GameObjects.Container;
+  upgrade: Phaser.GameObjects.Container;
 }
 
 interface CoreLoopDependencies {
@@ -31,6 +36,8 @@ interface CoreLoopDependencies {
   gateSystem: ZoneGateSystem;
   economy: EconomySystem;
   progression: ProgressionSystem;
+  upgradeSystem: UpgradeSystem;
+  upgradeStation: UpgradeStation;
   pathHistory: PlayerPathHistory;
   hud: Hud;
   input: InputController;
@@ -46,12 +53,15 @@ export class CoreLoopSystem {
   private readonly gateSystem: ZoneGateSystem;
   private readonly economy: EconomySystem;
   private readonly progression: ProgressionSystem;
+  private readonly upgradeSystem: UpgradeSystem;
+  private readonly upgradeStation: UpgradeStation;
   private readonly pathHistory: PlayerPathHistory;
   private readonly hud: Hud;
   private readonly input: InputController;
   private readonly navigationMarkers: NavigationMarkers;
   private readonly onProgressChanged: () => void;
   private readonly catEncounter: PetEncounter | undefined;
+  private readonly foxEncounter: PetEncounter | undefined;
 
   private activeEncounter: PetEncounter | null = null;
   private retryAvailableAt = 0;
@@ -59,6 +69,8 @@ export class CoreLoopSystem {
   private parkMarkerVisible = false;
   private catMarkerVisible = false;
   private centralHubMarkerVisible = false;
+  private foxMarkerVisible = false;
+  private upgradeMarkerVisible = false;
   private cachedBaseObjective = '';
   private cachedObjectiveStage: ProgressionStage | null = null;
   private cachedObjectiveMoney = -1;
@@ -71,6 +83,8 @@ export class CoreLoopSystem {
     this.gateSystem = dependencies.gateSystem;
     this.economy = dependencies.economy;
     this.progression = dependencies.progression;
+    this.upgradeSystem = dependencies.upgradeSystem;
+    this.upgradeStation = dependencies.upgradeStation;
     this.pathHistory = dependencies.pathHistory;
     this.hud = dependencies.hud;
     this.input = dependencies.input;
@@ -78,6 +92,9 @@ export class CoreLoopSystem {
     this.onProgressChanged = dependencies.onProgressChanged;
     this.catEncounter = this.encounters.find(
       (encounter) => encounter.pet.petId === 'cat',
+    );
+    this.foxEncounter = this.encounters.find(
+      (encounter) => encounter.pet.petId === 'fox',
     );
   }
 
@@ -109,6 +126,30 @@ export class CoreLoopSystem {
   }
 
   private updateExploration(time: number, interactPressed: boolean): void {
+    const upgradeAvailable = this.progression.isPetDelivered('fox');
+    const upgradePurchased = this.upgradeSystem.isPurchased(FAST_DASH_UPGRADE.id);
+    this.upgradeStation.setState(upgradeAvailable, upgradePurchased);
+    if (
+      upgradeAvailable &&
+      !upgradePurchased &&
+      this.upgradeStation.isPlayerNearby(this.player)
+    ) {
+      this.objective = this.economy.canAfford(FAST_DASH_UPGRADE.cost)
+        ? `Купи улучшение «Быстрый рывок»`
+        : `Нужно ${FAST_DASH_UPGRADE.cost} монет`;
+      this.setInteraction(
+        true,
+        'УЛУЧШИТЬ',
+        `E — УЛУЧШИТЬ РЫВОК ЗА ${FAST_DASH_UPGRADE.cost}`,
+        'УЛУЧШИТЬ РЫВОК',
+      );
+
+      if (interactPressed) {
+        this.tryPurchaseFastDash();
+      }
+      return;
+    }
+
     const nearbyGate = this.gateSystem.findNearbyLockedGate(this.player);
     if (nearbyGate !== null) {
       this.objective = this.economy.canAfford(nearbyGate.definition.cost)
@@ -227,7 +268,9 @@ export class CoreLoopSystem {
     this.activeEncounter = null;
     this.onProgressChanged();
 
-    if (encounter.pet.petId === 'cat') {
+    if (encounter.pet.petId === 'fox') {
+      this.hud.showToast('CENTRAL HUB ЗАВЕРШЁН! Улучшение ждёт на базе', 2800);
+    } else if (encounter.pet.petId === 'cat') {
       this.hud.showToast('PARK ЗАВЕРШЁН! Следующая цель: CENTRAL HUB', 2600);
     } else {
       this.hud.showToast('Питомец спасён… ну почти 😄', 2300);
@@ -244,9 +287,26 @@ export class CoreLoopSystem {
     }
 
     if (result === GateUnlockResult.Unlocked) {
-      this.hud.showToast('PARK ОТКРЫТ! Переходи мост', 2100);
+      this.hud.showToast(`${gate.definition.displayName} ОТКРЫТ!`, 2100);
       this.onProgressChanged();
       this.setInteraction(false);
+    }
+  }
+
+  private tryPurchaseFastDash(): void {
+    const result = this.upgradeSystem.tryPurchase(FAST_DASH_UPGRADE.id);
+    if (result === UpgradePurchaseResult.InsufficientFunds) {
+      this.hud.showToast(`Нужно ${FAST_DASH_UPGRADE.cost} монет`, 1400);
+      return;
+    }
+
+    if (result === UpgradePurchaseResult.Purchased) {
+      this.progression.notifyUpgradePurchased(this.economy.getMoney());
+      this.upgradeStation.setState(true, true);
+      this.hud.showToast('БЫСТРЫЙ РЫВОК! Перезарядка теперь 650 мс', 2600);
+      this.onProgressChanged();
+      this.setInteraction(false);
+      this.scene.cameras.main.flash(180, 118, 230, 155, false);
     }
   }
 
@@ -266,6 +326,7 @@ export class CoreLoopSystem {
   private updateNavigationMarkers(): void {
     const stage = this.progression.getStage();
     const catEncounter = this.catEncounter;
+    const foxEncounter = this.foxEncounter;
     const distanceX =
       catEncounter === undefined ? 0 : this.player.x - catEncounter.pet.x;
     const distanceY =
@@ -273,11 +334,24 @@ export class CoreLoopSystem {
     const closeToCat =
       catEncounter !== undefined &&
       distanceX * distanceX + distanceY * distanceY < 220 * 220;
+    const foxDistanceX =
+      foxEncounter === undefined ? 0 : this.player.x - foxEncounter.pet.x;
+    const foxDistanceY =
+      foxEncounter === undefined ? 0 : this.player.y - foxEncounter.pet.y;
+    const closeToFox =
+      foxEncounter !== undefined &&
+      foxDistanceX * foxDistanceX + foxDistanceY * foxDistanceY < 220 * 220;
     const parkVisible =
       stage === ProgressionStage.EarnForPark ||
       stage === ProgressionStage.UnlockPark;
     const catVisible = stage === ProgressionStage.StealParkPet && !closeToCat;
-    const centralHubVisible = stage === ProgressionStage.ParkComplete;
+    const centralHubVisible =
+      stage === ProgressionStage.EarnForCentralHub ||
+      stage === ProgressionStage.UnlockCentralHub;
+    const foxVisible = stage === ProgressionStage.StealHubPet && !closeToFox;
+    const upgradeVisible =
+      stage === ProgressionStage.EarnForDashUpgrade ||
+      stage === ProgressionStage.BuyDashUpgrade;
 
     if (parkVisible !== this.parkMarkerVisible) {
       this.parkMarkerVisible = parkVisible;
@@ -290,6 +364,14 @@ export class CoreLoopSystem {
     if (centralHubVisible !== this.centralHubMarkerVisible) {
       this.centralHubMarkerVisible = centralHubVisible;
       this.navigationMarkers.centralHub.setVisible(centralHubVisible);
+    }
+    if (foxVisible !== this.foxMarkerVisible) {
+      this.foxMarkerVisible = foxVisible;
+      this.navigationMarkers.fox.setVisible(foxVisible);
+    }
+    if (upgradeVisible !== this.upgradeMarkerVisible) {
+      this.upgradeMarkerVisible = upgradeVisible;
+      this.navigationMarkers.upgrade.setVisible(upgradeVisible);
     }
   }
 
