@@ -1,4 +1,4 @@
-# Этап 5 — VIP Estate, Final Heist and Campaign Completion
+# Этап 6 — World Expansion, Roaming Pet AI, Upgrade Paths and Economy Rebalance
 
 ## Статус
 
@@ -6,70 +6,55 @@ COMPLETED — AWAITING GAME DIRECTOR REVIEW
 
 ## Цель
 
-Завершить playable-кампанию игры на существующей архитектуре Этапов 1–4:
+Расширить существующую законченную кампанию до финального системного vertical slice перед визуальным производством: увеличить и осмысленно перераспределить мир, добавить шесть roaming-питомцев с лёгким data-driven AI, расширить базу до 14 питомцев, построить три ветки улучшений и перевести чистое прохождение на утверждённый `balanceRevision: 2` с целевым временем первого прохождения 16–22 минуты.
 
-`Собака → PARK → Кот → CENTRAL HUB → Лиса → Быстрый рывок → RICH DISTRICT → Павлин/Панда → Двойной рывок → VIP ESTATE → два VIP-питомца → Дракон → победа`.
-
-Этап должен превратить VIP ESTATE в последнюю полноценную prototype-зону, поддержать свободный порядок двух VIP-краж, финальную погоню с тремя преследователями, завершение кампании, post-victory free roam и безопасное начало новой игры. Визуалы остаются программной prototype-графикой и должны быть готовы к последующей замене питомцев без изменения gameplay ids.
-
-## Утверждённый баланс
-
-- VIP ESTATE открывается за 800 монет после RICH DISTRICT, доставки Dog/Cat/Fox/Peacock/Panda и покупки Fast Dash/Double Dash.
-- `vip-a` — временно «Золотая Капибара», `RARE`, `+24 монеты/сек`.
-- `vip-b` — временно «Королевская Сова», `RARE`, `+36 монет/сек`.
-- Общий доход после двух VIP-питомцев — `+92 монеты/сек`.
-- `dragon` — временно «Дракон», `LEGENDARY`, `+100 монет/сек`.
-- Итоговый доход восьми питомцев — `+192 монеты/сек`.
-- Скорости, стоимость существующих зон и upgrades, dash и экономика Этапов 1–4 не меняются.
+Существующие восемь heist encounters, их механика кражи/погони, пять основных зон и победа через доставку Дракона должны сохраниться. Новые системы должны расширять текущую архитектуру, а не заменять работающий core loop.
 
 ## Объём
 
-- Расширить data definitions стабильными pet ids `vip-a`, `vip-b`, `dragon`; gameplay и user-facing тексты не должны зависеть от `displayName`.
-- Создать data-driven gate VIP ESTATE и полноценный prototype layout зоны с главным входом, двумя крыльями, центральным Dragon Courtyard, широкими маршрутами и отличимым визуальным языком.
-- Реализовать два VIP encounters с двумя pursuers каждый и свободным порядком доставки.
-- Реализовать два Dragon seals, состояние которых выводится из доставленных VIP pets; автоматически открыть двор при `2/2`.
-- Реализовать Dragon encounter через существующую `pursuers[]` architecture: boss сразу, Guard A примерно через 700 мс, Guard B примерно через 1400 мс.
-- Расширить возврат data-driven ограничением для дальних pursuers: после честного возврата выполнить безопасный визуальный reset примерно через 5–7 секунд, не ломая обычные encounters и stuck fail-safe.
-- Расширить базу до восьми раздельных PetId slots, выделив Дракону заметное место.
-- Расширить progression, objectives и navigation markers до `CAMPAIGN_COMPLETE` без комбинаторных веток для порядка VIP pets.
-- Сохранить `saveVersion: 2`, добавить совместимые optional run stats и логическую validation финальных фактов.
-- Реализовать run stats: активное игровое время, число провалов, успешные доставки и завершение кампании.
-- Реализовать responsive victory overlay со статистикой, действиями «Продолжить играть» и подтверждаемым «Начать заново».
-- Расширить dev-only QA tools и Vitest suite.
-- Создать `docs/ASSET_PLAN.md` как технический план следующего визуального vertical slice без производства изображений.
-- Обновить фактическую документацию и отчёт, выполнить полный regression/runtime/mobile/performance QA.
+- Увеличить мир до `4608 × 3072`, сохранить пять утверждённых зон и добавить шесть различимых roaming-территорий, безопасные маршруты, четыре data-driven shortcut и расширенную базу.
+- Добавить шесть стабильных roaming encounters: Прыгун, Енот, Альпака, Хамелеон, Газель и Мини-грифон.
+- Реализовать состояния roaming AI, waypoint graphs, лёгкое бегство, stamina/tired/capture loop, stuck/reset fail-safe и снижение частоты offscreen-решений.
+- Использовать общую сущность `Pet` после захвата: один активный переносимый питомец, существующий breadcrumb follow, доставка, база, доход и сохранение.
+- Добавить data-driven источник питомца `HEIST` / `ROAMING`, общие prerequisites и поддержку 14 раздельных base slots.
+- Утвердить и реализовать `balanceRevision: 2`: новые доходы восьми core pets, шести roaming pets, цены зон и пяти дополнительных upgrades без самовольной корректировки значений.
+- Создать три физические станции: Mobility, Tracking и Stealth; реализовать Tracker, Lure, Fast Dash, Runner Shoes, Double Dash и Quiet Shoes через типизированные `effects[]`.
+- Добавить требования по числу roaming pets к gates/upgrades и сохранить уже открытый прогресс мигрированных save через grandfathering.
+- Мигрировать `saveVersion: 2` в `saveVersion: 3`, безопасно восстанавливать факты мира и не сохранять транзиентное AI/active-carry состояние.
+- Сохранить победу через Дракона, сделать счёт коллекции динамическим `x/14`, поддержать старые завершённые save и отдельное завершение коллекции после победы.
+- Добавить честный `?playtest=1` режим с milestone telemetry и экспортируемым отчётом без cheats или изменения gameplay.
+- Расширить dev-only инструменты для AI, prerequisites, roaming deliveries и `balanceRevision`.
+- Добавить unit tests экономики, roaming AI, prerequisites/effects, progression и миграции save.
+- Создать `docs/BALANCE_MODEL.md`, обновить фактическую проектную документацию и итоговый отчёт.
 
 ## Критерии готовности
 
-- [x] Core loop, progression, gates, saves, encounters и upgrades Этапов 1–4 не сломаны.
-- [x] VIP gate использует утверждённые prerequisites, стоит 800 монет, списывает деньги и физически открывает зону.
-- [x] VIP ESTATE визуально отличается от RICH DISTRICT и имеет читаемые широкие маршруты.
-- [x] VIP A и VIP B доступны в любом порядке и дают соответственно `+24/сек` и `+36/сек`.
-- [x] Оба порядка VIP pets покрыты тестами и runtime-проверкой.
-- [x] Каждый доставленный VIP pet отключает один seal; Dragon Courtyard автоматически открывается после `2/2`.
-- [x] Дракон недоступен до обоих VIP pets, имеет `LEGENDARY` rarity и даёт `+100/сек`.
-- [x] Dragon encounter использует три pursuers и cancel-safe delayed activations.
-- [x] Поимка любым pursuer обрабатывается один раз, отменяет pending alarms, возвращает питомца и гарантирует доступный retry.
-- [x] Data-driven long-return reset не требует долгого ожидания и не меняет обычные encounters.
-- [x] Восемь питомцев читаемо размещаются внутри базы, итоговый доход равен `+192/сек`.
-- [x] Доставка Дракона выводит победу из delivered pet fact, сохраняет прогресс и показывает responsive overlay.
-- [x] Continue возвращает free roam; New Game после подтверждения очищает save и начинает кампанию заново.
-- [x] Reload полного save восстанавливает восемь питомцев, все зоны/upgrades, двор, `2/2` dash, доход и completed objective без повторного overlay.
-- [x] Старые корректные Stage 4 save v2 загружаются, optional run stats получают безопасные defaults, противоречивые saves отклоняются.
-- [x] Все user-facing имена питомцев поступают из data definitions; internal ids не зависят от отображаемых имён/visual keys.
-- [x] Run stats не считают скрытое/поставленное на паузу время и устойчивы к abnormal delta.
-- [x] FPS limit 60, dirty UI, cached income и throttled debug поведение сохранены.
+- [x] Мир имеет размер `4608 × 3072`, читаемые пять зон, шесть roaming-территорий, расширенную базу и доступные маршруты без лабиринтов.
+- [x] Четыре shortcut открываются только из фактов доставленных питомцев и не обходят исходные платные gates.
+- [x] Шесть roaming pets имеют утверждённые ids, зоны, редкости, доходы, отдельные безопасные waypoint graphs и data-driven behavior profiles.
+- [x] Roaming AI покрывает idle/wander/alert/flee/tired/follow/base, не использует navmesh и имеет безопасный reset при застревании/выходе из территории.
+- [x] Захват доступен только в tired window; один активный питомец блокирует остальные theft/capture/gate/upgrade interactions.
+- [x] После захвата питомец следует по PlayerPathHistory, доставляется существующим core loop и восстанавливается на базе после reload.
+- [x] На базе видимы до 14 питомцев, roaming pen показывает прогресс `0/6…6/6`, станции и питомцы не накладываются.
+- [x] Экономика точно соответствует `balanceRevision: 2`; итог core income `95`, roaming `12`, общий `107`.
+- [x] PARK/HUB/RICH/VIP и все upgrades используют общую prerequisite model и утверждённые цены/условия.
+- [x] Tracker, Lure, Runner Shoes и Quiet Shoes дают только утверждённые эффекты; Fast/Double Dash сохраняют утверждённое поведение.
+- [x] Save v3 валидируется, повреждённый save безопасно отвергается, v2 мигрирует без потери прогресса и с grandfathered zones/upgrades.
+- [x] Старый completed save остаётся победой при `8/14`; чистая новая победа требует фактически открыть VIP через шесть roaming pets и даёт `14/14`.
+- [x] Progression/objectives/navigation ведут игрока по новой кампании без hardcoded switch на каждый питомец.
+- [x] `?playtest=1` не меняет игру, собирает утверждённые milestones и формирует обезличенный отчёт; dev run явно помечается невалидным для времени.
+- [x] Unit tests покрывают AI, суммы дохода, prerequisites/effects, progression, reload без дублей и v2→v3 migration.
+- [x] Desktop/mobile interactions, восемь heists, шесть roaming captures, gates, stations, shortcuts, victory/reload и performance проходят runtime QA доступными средствами.
 - [x] `npm run typecheck`, `npm run test`, `npm run build`, `npm run preview` и `git diff --check` проходят.
-- [x] Browser console, desktop/mobile layout, final encounters, victory flow, reload и performance проверены доступными средствами.
-- [x] `docs/ASSET_PLAN.md`, проектная документация и `tasks/LAST_REPORT.md` отражают фактическое состояние.
+- [x] Документация и `tasks/LAST_REPORT.md` соответствуют фактической реализации.
 
 ## Ограничения
 
-- Не создавать финальные brainrot-дизайны, production sprite sheets, изображения или финальный UI art.
-- Не начинать Stage 6 или визуальное производство самостоятельно.
-- Не добавлять новые зоны, питомцев сверх `vip-a`, `vip-b`, `dragon` или upgrades после Double Dash.
-- Не добавлять audio, SDK Яндекс Игр, рекламу, облачное сохранение, магазин, строительство, combat, health, inventory, stealth, vision cones, navmesh или procedural generation.
-- Не менять утверждённый баланс, скорости, размеры мира и механику Этапов 1–4.
-- Не растягивать кампанию завышенными ценами, ожиданием, пустыми пробежками или лабиринтами.
-- Не переписывать работающие системы без технической необходимости; использовать существующие data-driven gates, encounters и pursuers.
-- Save не хранит active theft, pursuer states, pending alarms, dash charges или состояние victory overlay.
+- Не начинать визуальный vertical slice или следующий этап.
+- Не создавать production sprites, финальные brainrot-дизайны, audio или Yandex SDK.
+- Не менять утверждённые цены, доходы, скорости heist encounters, механику кражи/погони и условия победы.
+- Не удалять и не переименовывать пять существующих `ZoneId`; новые территории являются подзонами.
+- Не применять navmesh, procedural generation, сложный stealth/combat/inventory и тяжёлые AI/framework решения.
+- Не хранить в save текущую stamina, waypoint, active pet, pursuers, dash charges, tracker target или UI state.
+- Не выдавать dev/cheat прохождение за честный normal run и не использовать прежний результат `1:06`.
+- Не переписывать работающие системы без необходимости и не начинать следующий этап самостоятельно.

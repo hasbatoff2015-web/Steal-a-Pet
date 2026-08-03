@@ -11,6 +11,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   private dashEndsAt = 0;
   private nextTrailAt = 0;
+  private moveSpeedMultiplier = 1;
   private readonly dashCharges = new DashChargeController(
     PLAYER_CONFIG.dashCooldownMs,
   );
@@ -54,7 +55,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const isDashing = time < this.dashEndsAt;
     const direction = isDashing ? this.dashDirection : movement;
-    const speed = isDashing ? PLAYER_CONFIG.dashSpeed : PLAYER_CONFIG.speed;
+    const speed = isDashing
+      ? PLAYER_CONFIG.dashSpeed
+      : PLAYER_CONFIG.speed * this.moveSpeedMultiplier;
 
     this.setVelocity(direction.x * speed, direction.y * speed);
 
@@ -89,6 +92,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   public setMaxDashCharges(maxCharges: number): void {
     this.dashCharges.setMaxCharges(maxCharges, this.scene.time.now);
+  }
+
+  public setMoveSpeedMultiplier(multiplier: number): void {
+    this.moveSpeedMultiplier = Math.max(0.1, multiplier);
+  }
+
+  public getMoveSpeedMultiplier(): number {
+    return this.moveSpeedMultiplier;
   }
 
   public getDashCooldownMs(): number {

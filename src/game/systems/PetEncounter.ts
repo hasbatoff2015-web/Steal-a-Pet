@@ -25,6 +25,8 @@ export class PetEncounter {
   private theftActive = false;
   private theftStartedAt = 0;
   private justActivatedPursuer: PursuerDefinition | null = null;
+  private theftHeadStartBonusMs = 0;
+  private activationDelayBonusMs = 0;
 
   public constructor(
     public readonly definition: PetEncounterDefinition,
@@ -52,7 +54,7 @@ export class PetEncounter {
       for (const pursuer of this.pursuers) {
         if (
           !pursuer.activated &&
-          time >= this.theftStartedAt + (pursuer.definition.activationDelayMs ?? 0)
+          time >= this.theftStartedAt + (pursuer.definition.activationDelayMs ?? 0) + this.activationDelayBonusMs
         ) {
           pursuer.activated = true;
           pursuer.chase.start();
@@ -90,13 +92,21 @@ export class PetEncounter {
     return this.pursuers.every((pursuer) => pursuer.chase.isOwnerReady());
   }
 
-  public startTheft(time: number): void {
+  public startTheft(
+    time: number,
+    modifiers: Readonly<{ theftHeadStartBonusMs: number; activationDelayBonusMs: number }> = {
+      theftHeadStartBonusMs: 0,
+      activationDelayBonusMs: 0,
+    },
+  ): void {
     this.theftActive = true;
     this.theftStartedAt = time;
     this.justActivatedPursuer = null;
+    this.theftHeadStartBonusMs = modifiers.theftHeadStartBonusMs;
+    this.activationDelayBonusMs = modifiers.activationDelayBonusMs;
     this.pet.startFollowing();
     for (const pursuer of this.pursuers) {
-      pursuer.activated = (pursuer.definition.activationDelayMs ?? 0) <= 0;
+      pursuer.activated = (pursuer.definition.activationDelayMs ?? 0) + this.activationDelayBonusMs <= 0;
       if (pursuer.activated) {
         pursuer.chase.start();
       }
@@ -128,7 +138,7 @@ export class PetEncounter {
   }
 
   public getTheftHeadStartMs(): number {
-    return this.pursuers[0]?.definition.chase.theftHeadStartMs ?? 0;
+    return (this.pursuers[0]?.definition.chase.theftHeadStartMs ?? 0) + this.theftHeadStartBonusMs;
   }
 
   public getFailureGraceMs(): number {

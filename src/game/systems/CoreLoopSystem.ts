@@ -5,6 +5,8 @@ import type { PetId } from '../data/pets';
 import {
   DOUBLE_DASH_UPGRADE,
   getUpgradeDefinition,
+  UpgradeBranchId,
+  UpgradeEffectId,
   type UpgradeId,
 } from '../data/upgrades';
 import { Player } from '../entities/Player';
@@ -19,6 +21,8 @@ import { PetEncounter } from './PetEncounter';
 import { PlayerPathHistory } from './PlayerPathHistory';
 import { ProgressionStage, ProgressionSystem } from './ProgressionSystem';
 import type { RunStatsSystem } from './RunStatsSystem';
+import type { RoamingPetController } from './RoamingPetController';
+import type { RoamingPetSystem } from './RoamingPetSystem';
 import { UpgradePurchaseResult, UpgradeSystem } from './UpgradeSystem';
 import { GateUnlockResult, ZoneGateSystem } from './ZoneGateSystem';
 
@@ -46,12 +50,13 @@ interface CoreLoopDependencies {
   scene: Phaser.Scene;
   player: Player;
   encounters: readonly PetEncounter[];
+  roamingSystem: RoamingPetSystem;
   baseSystem: BaseSystem;
   gateSystem: ZoneGateSystem;
   economy: EconomySystem;
   progression: ProgressionSystem;
   upgradeSystem: UpgradeSystem;
-  upgradeStation: UpgradeStation;
+  upgradeStations: readonly Readonly<{ station: UpgradeStation; branchId: UpgradeBranchId }>[];
   dragonCourtyard: DragonCourtyard;
   runStats: RunStatsSystem;
   pathHistory: PlayerPathHistory;
@@ -66,12 +71,13 @@ export class CoreLoopSystem {
   private readonly scene: Phaser.Scene;
   private readonly player: Player;
   private readonly encounters: readonly PetEncounter[];
+  private readonly roamingSystem: RoamingPetSystem;
   private readonly baseSystem: BaseSystem;
   private readonly gateSystem: ZoneGateSystem;
   private readonly economy: EconomySystem;
   private readonly progression: ProgressionSystem;
   private readonly upgradeSystem: UpgradeSystem;
-  private readonly upgradeStation: UpgradeStation;
+  private readonly upgradeStations: readonly Readonly<{ station: UpgradeStation; branchId: UpgradeBranchId }>[];
   private readonly dragonCourtyard: DragonCourtyard;
   private readonly runStats: RunStatsSystem;
   private readonly pathHistory: PlayerPathHistory;
@@ -105,12 +111,13 @@ export class CoreLoopSystem {
     this.scene = dependencies.scene;
     this.player = dependencies.player;
     this.encounters = dependencies.encounters;
+    this.roamingSystem = dependencies.roamingSystem;
     this.baseSystem = dependencies.baseSystem;
     this.gateSystem = dependencies.gateSystem;
     this.economy = dependencies.economy;
     this.progression = dependencies.progression;
     this.upgradeSystem = dependencies.upgradeSystem;
-    this.upgradeStation = dependencies.upgradeStation;
+    this.upgradeStations = dependencies.upgradeStations;
     this.dragonCourtyard = dependencies.dragonCourtyard;
     this.runStats = dependencies.runStats;
     this.pathHistory = dependencies.pathHistory;
@@ -125,6 +132,7 @@ export class CoreLoopSystem {
   }
 
   public update(time: number, delta: number, interactPressed: boolean): void {
+    this.roamingSystem.update(time, delta, this.player, this.pathHistory);
     for (const encounter of this.encounters) {
       encounter.update(time, delta, this.player, this.pathHistory);
       const activatedPursuer = encounter.consumeActivatedPursuer();
@@ -139,9 +147,13 @@ export class CoreLoopSystem {
 
     this.progression.updateForMoney(this.economy.getMoney());
     this.gateSystem.refreshPrerequisiteStates();
-    this.upgradeStation.setState(this.upgradeSystem.getStationState());
+    for (const item of this.upgradeStations) {
+      item.station.setState(this.upgradeSystem.getStationState(item.branchId));
+    }
 
-    if (this.activeEncounter === null) {
+    if (this.roamingSystem.getActive() !== null) {
+      this.updateRoamingEscape();
+    } else if (this.activeEncounter === null) {
       this.updateExploration(time, interactPressed);
     } else {
       this.updateEscape(time);
@@ -152,13 +164,13 @@ export class CoreLoopSystem {
   }
 
   public getPhase(): CoreLoopPhase {
-    return this.activeEncounter === null
+    return this.activeEncounter === null && this.roamingSystem.getActive() === null
       ? CoreLoopPhase.Exploring
       : CoreLoopPhase.Escape;
   }
 
   public getActiveEncounterId(): string {
-    return this.activeEncounter?.definition.id ?? 'none';
+    return this.activeEncounter?.definition.id ?? this.roamingSystem.getActive()?.definition.id ?? 'none';
   }
 
   public shiftTiming(deltaMs: number): void {
@@ -174,6 +186,10 @@ export class CoreLoopSystem {
   }
 
   public completeActiveTheftForDevelopment(): boolean {
+    if (this.roamingSystem.getActive() !== null) {
+      this.completeRoamingDelivery();
+      return true;
+    }
     if (this.activeEncounter === null) {
       return false;
     }
@@ -183,11 +199,16 @@ export class CoreLoopSystem {
   }
 
   private updateExploration(time: number, interactPressed: boolean): void {
-    const availableUpgradeId = this.upgradeStation.getAvailableUpgradeId();
-    if (
-      availableUpgradeId !== null &&
-      this.upgradeStation.isPlayerNearby(this.player)
-    ) {
+    const nearbyRoaming = this.roamingSystem.findNearbyCapture(this.player);
+    if (nearbyRoaming !== null) {
+      this.objective = `Питомец устал · поймай: ${nearbyRoaming.pet.displayName}`;
+      this.setInteraction(true, 'ПОЙМАТЬ', `E — ПОЙМАТЬ ${nearbyRoaming.pet.displayName.toUpperCase()}`, 'ПОЙМАТЬ');
+      if (interactPressed) this.startRoamingCapture(nearbyRoaming);
+      return;
+    }
+    const nearbyStation = this.upgradeStations.find((item) => item.station.isPlayerNearby(this.player));
+    const availableUpgradeId = nearbyStation?.station.getAvailableUpgradeId() ?? null;
+    if (nearbyStation !== undefined && availableUpgradeId !== null) {
       const upgrade = getUpgradeDefinition(availableUpgradeId);
       this.objective = this.economy.canAfford(upgrade.cost)
         ? `Купи улучшение «${this.getUpgradeDisplayTitle(availableUpgradeId)}»`
@@ -285,10 +306,54 @@ export class CoreLoopSystem {
     }
   }
 
+  private updateRoamingEscape(): void {
+    const active = this.roamingSystem.getActive();
+    if (active === null) return;
+    this.setInteraction(false);
+    this.objective = `Верни питомца на базу: ${active.pet.displayName}`;
+    if (this.baseSystem.canDeliver(this.player, active.pet, PET_CONFIG.deliveryDistance)) {
+      this.completeRoamingDelivery();
+    }
+  }
+
+  private startRoamingCapture(controller: RoamingPetController): void {
+    this.runStats.recordRoamingAttempt();
+    if (!this.roamingSystem.startCapture(controller)) return;
+    this.runStats.recordRoamingCapture();
+    this.pathHistory.reset(this.player);
+    this.progression.startTheft(controller.definition.petId, this.economy.getMoney());
+    this.hud.showToast(`${controller.pet.displayName.toUpperCase()} ПОЙМАН! НЕСИ ДОМОЙ!`, 1700);
+    this.scene.cameras.main.flash(130, 120, 220, 255, false);
+    this.setInteraction(false);
+  }
+
+  private completeRoamingDelivery(): void {
+    const controller = this.roamingSystem.completeActive(this.baseSystem);
+    if (controller === null) return;
+    const petId = controller.definition.petId;
+    this.economy.addIncomeSource(petId, controller.pet.incomePerSecond);
+    this.progression.deliverPet(petId, this.economy.getMoney());
+    this.runStats.recordDelivery();
+    this.onProgressChanged();
+    const count = this.progression.getRoamingPetCount();
+    this.hud.showToast(
+      count >= 6 && this.progression.isCampaignComplete()
+        ? 'КОЛЛЕКЦИЯ ЗАВЕРШЕНА!'
+        : `${controller.pet.displayName} теперь в roaming-загоне · ${count}/6`,
+      2500,
+    );
+    const ring = this.scene.add.circle(controller.pet.x, controller.pet.y, 32, 0x7ae6a1, 0.18)
+      .setStrokeStyle(7, 0xffe36c, 0.95).setDepth(controller.pet.y + 4);
+    this.scene.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 650, onComplete: () => ring.destroy() });
+  }
+
   private startTheft(encounter: PetEncounter): void {
     this.activeEncounter = encounter;
     this.pathHistory.reset(this.player);
-    encounter.startTheft(this.scene.time.now);
+    encounter.startTheft(this.scene.time.now, {
+      theftHeadStartBonusMs: this.upgradeSystem.getEffectSum(UpgradeEffectId.TheftHeadStartBonusMs),
+      activationDelayBonusMs: this.upgradeSystem.getEffectSum(UpgradeEffectId.DelayedPursuerActivationBonusMs),
+    });
     this.progression.startTheft(encounter.pet.petId, this.economy.getMoney());
     this.retryAvailableAt =
       this.scene.time.now + encounter.getTheftHeadStartMs();
@@ -400,12 +465,15 @@ export class CoreLoopSystem {
     }
 
     if (result === UpgradePurchaseResult.Purchased) {
+      this.runStats.recordUpgradePurchase();
       this.progression.notifyUpgradePurchased(this.economy.getMoney());
-      this.upgradeStation.setState(this.upgradeSystem.getStationState());
+      for (const item of this.upgradeStations) item.station.setState(this.upgradeSystem.getStationState(item.branchId));
       this.hud.showToast(
         upgradeId === DOUBLE_DASH_UPGRADE.id
           ? 'ДВОЙНОЙ РЫВОК! Теперь доступны два заряда'
-          : 'БЫСТРЫЙ РЫВОК! Перезарядка теперь 650 мс',
+          : upgradeId === 'fast-dash'
+            ? 'БЫСТРЫЙ РЫВОК! Перезарядка теперь 650 мс'
+            : `${upgrade.displayName} — УЛУЧШЕНИЕ КУПЛЕНО`,
         2600,
       );
       this.onProgressChanged();
@@ -481,8 +549,12 @@ export class CoreLoopSystem {
     const upgradeVisible =
       stage === ProgressionStage.EarnForDashUpgrade ||
       stage === ProgressionStage.BuyDashUpgrade ||
+      stage === ProgressionStage.EarnForRunnerShoes ||
+      stage === ProgressionStage.BuyRunnerShoes ||
       stage === ProgressionStage.EarnForDoubleDash ||
-      stage === ProgressionStage.BuyDoubleDash;
+      stage === ProgressionStage.BuyDoubleDash ||
+      stage === ProgressionStage.EarnForQuietShoes ||
+      stage === ProgressionStage.BuyQuietShoes;
 
     if (parkVisible !== this.parkMarkerVisible) {
       this.parkMarkerVisible = parkVisible;
@@ -541,9 +613,7 @@ export class CoreLoopSystem {
   }
 
   private getUpgradeDisplayTitle(upgradeId: UpgradeId): string {
-    return upgradeId === DOUBLE_DASH_UPGRADE.id
-      ? 'Двойной рывок'
-      : 'Быстрый рывок';
+    return getUpgradeDefinition(upgradeId).displayName;
   }
 
   private getBaseObjective(): string {

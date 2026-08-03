@@ -4,6 +4,17 @@
 
 ## Решения
 
+### 2026-08-03 — Этап 6: roaming pets и balance revision 2
+
+- Мир расширен до `4608 × 3072`; пять основных ZoneId сохранены, шесть новых мест оформлены как подзоны/roaming-территории.
+- Введены источники HEIST и ROAMING; после захвата оба используют общую Pet/follow/base/economy/save цепочку.
+- Утверждены шесть roaming pets, лёгкий waypoint/stamina/tired AI и коллекция из 14 питомцев.
+- Экономика переведена на `balanceRevision: 2`; утверждённые значения и checkpoint-модель вынесены в `BALANCE_MODEL.md`.
+- Upgrades переведены на `effects[]` и три ветки; gates/upgrades используют общий evaluator с roaming count.
+- Save обновлён до v3 с v2 migration/grandfathering; старые completed saves остаются победой без выдачи roaming pets.
+- Победа остаётся доставкой Дракона; post-victory completion roaming-коллекции не создаёт вторую победу.
+- Добавлен локальный `?playtest=1` telemetry/report режим; dev runs явно невалидны для измерения кампании.
+
 ### 2026-07-30 — Исходный GDD и базовая концепция
 
 - Утверждена концепция «Укради Питомца!» / Steal a Pet!: короткая законченная браузерная игра для Яндекс Игр с ориентиром около 20 минут на первое прохождение.

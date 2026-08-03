@@ -24,6 +24,8 @@ interface DeveloperActions {
   resetSave: () => void;
   testV1Migration: () => void;
   getSnapshot: () => string;
+  forceRoamingTired: (petId: PetId) => void;
+  resetRoaming: (petId: PetId) => void;
 }
 
 export class DeveloperTools {
@@ -91,6 +93,12 @@ export class DeveloperTools {
       this.createPetButton('vip-a', 'dev-to-vip-a', actions),
       this.createPetButton('vip-b', 'dev-to-vip-b', actions),
       this.createPetButton('dragon', 'dev-to-dragon', actions),
+      ...(['roam-01', 'roam-02', 'roam-03', 'roam-04', 'roam-05', 'roam-06'] as const)
+        .flatMap((petId) => [
+          this.createPetButton(petId, `dev-to-${petId}`, actions),
+          this.createButton(`TIRED ${petId.slice(-2)}`, `dev-tired-${petId}`, () => actions.forceRoamingTired(petId)),
+          this.createButton(`RESET ${petId.slice(-2)}`, `dev-reset-${petId}`, () => actions.resetRoaming(petId)),
+        ]),
       this.createButton('К PARK', 'dev-to-gate', actions.toParkGate),
       this.createButton('К HUB', 'dev-to-hub-gate', actions.toCentralHubGate),
       this.createButton('К RICH', 'dev-to-rich-gate', actions.toRichDistrictGate),
@@ -104,6 +112,8 @@ export class DeveloperTools {
       this.createButton('+200', 'dev-add-money-200', () => actions.addMoney(200)),
       this.createButton('+250', 'dev-add-money-250', () => actions.addMoney(250)),
       this.createButton('+800', 'dev-add-money-800', () => actions.addMoney(800)),
+      this.createButton('+1400', 'dev-add-money-1400', () => actions.addMoney(1400)),
+      this.createButton('+2800', 'dev-add-money-2800', () => actions.addMoney(2800)),
       this.createButton('0 МОНЕТ', 'dev-reset-money', actions.resetMoney),
       this.createButton('ДЕЙСТВИЕ', 'dev-interact', actions.interact),
       this.createButton('РЫВОК', 'dev-dash', actions.dash),

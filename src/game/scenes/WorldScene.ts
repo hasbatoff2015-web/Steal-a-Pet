@@ -2,11 +2,9 @@ import Phaser from 'phaser';
 
 import { PET_CONFIG, WORLD } from '../config/gameplay';
 import { PET_ENCOUNTER_DEFINITIONS } from '../data/encounters';
+import type { RoamingPetId } from '../data/roamingPets';
 import { getPetDefinition, type PetId } from '../data/pets';
-import {
-  DOUBLE_DASH_UPGRADE,
-  FAST_DASH_UPGRADE,
-} from '../data/upgrades';
+import { UpgradeBranchId, UPGRADE_DEFINITIONS } from '../data/upgrades';
 import { ZoneId } from '../data/zones';
 import { OwnerState } from '../entities/OwnerNpc';
 import { OwnerNpc } from '../entities/OwnerNpc';
@@ -19,8 +17,11 @@ import { CoreLoopSystem } from '../systems/CoreLoopSystem';
 import { EconomySystem } from '../systems/EconomySystem';
 import { PetEncounter } from '../systems/PetEncounter';
 import { PlayerPathHistory } from '../systems/PlayerPathHistory';
+import { PetTrackerSystem } from '../systems/PetTrackerSystem';
+import { PlaytestSystem } from '../systems/PlaytestSystem';
 import { ProgressionSystem } from '../systems/ProgressionSystem';
 import { RunStatsSystem } from '../systems/RunStatsSystem';
+import { RoamingPetSystem } from '../systems/RoamingPetSystem';
 import { type GameSaveData, SaveSystem } from '../systems/SaveSystem';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ZoneGateSystem } from '../systems/ZoneGateSystem';
@@ -40,6 +41,9 @@ export class WorldScene extends Phaser.Scene {
   private pathHistory!: PlayerPathHistory;
   private baseSystem!: BaseSystem;
   private runStats!: RunStatsSystem;
+  private roamingSystem!: RoamingPetSystem;
+  private petTrackerSystem!: PetTrackerSystem;
+  private playtestSystem!: PlaytestSystem;
   private encounters: readonly PetEncounter[] = [];
   private coreLoop!: CoreLoopSystem;
   private hud!: Hud;
@@ -51,6 +55,8 @@ export class WorldScene extends Phaser.Scene {
   private pageHidden = document.hidden;
   private hiddenAtGameTime: number | null = null;
   private catReturnTestPositionIndex = 0;
+  private grandfatheredZoneIds: readonly ZoneId[] = [];
+  private lastRoamingPenCount = -1;
 
   public constructor() {
     super({ key: 'WorldScene' });
@@ -61,10 +67,12 @@ export class WorldScene extends Phaser.Scene {
 
     this.saveSystem = new SaveSystem();
     const savedGame = this.saveSystem.load();
+    this.grandfatheredZoneIds = savedGame.grandfatheredZoneIds;
     this.economy = new EconomySystem(savedGame.money);
     this.upgradeSystem = new UpgradeSystem(
       this.economy,
       savedGame.purchasedUpgradeIds,
+      savedGame.grandfatheredUpgradeIds,
     );
     this.progression = new ProgressionSystem(
       (upgradeId) => this.upgradeSystem.isPurchased(upgradeId),
@@ -104,11 +112,29 @@ export class WorldScene extends Phaser.Scene {
       PET_CONFIG.breadcrumbMaxPoints,
     );
     this.hud = new Hud(this);
+    const cleanPlaytestStart =
+      savedGame.money < 0.001 &&
+      savedGame.deliveredPetIds.length === 0 &&
+      savedGame.unlockedZones.length === 1 &&
+      savedGame.purchasedUpgradeIds.length === 0 &&
+      (savedGame.runStats?.elapsedMs ?? 0) === 0;
+    this.playtestSystem = new PlaytestSystem(
+      this,
+      this.progression,
+      this.economy,
+      this.upgradeSystem,
+      this.runStats,
+      () => this.hud.getRollingFps(),
+      cleanPlaytestStart,
+    );
     this.victoryOverlay = new VictoryOverlay(this, {
       onContinue: () => {
         this.hud.showToast('Кампания завершена · свободное исследование', 2100);
       },
       onNewGame: () => this.resetSave(),
+      ...(this.playtestSystem.enabled
+        ? { onCopyReport: () => this.playtestSystem.copyReport() }
+        : {}),
     });
 
     this.baseSystem = new BaseSystem(
@@ -116,6 +142,27 @@ export class WorldScene extends Phaser.Scene {
       this.world.playerPetSlots,
     );
     this.encounters = this.createEncounters(this.baseSystem);
+    this.roamingSystem = new RoamingPetSystem(
+      this,
+      this.progression,
+      this.upgradeSystem,
+      this.baseSystem,
+    );
+    for (const controller of this.roamingSystem.getControllers()) {
+      if (this.progression.isPetDelivered(controller.definition.petId)) {
+        this.economy.addIncomeSource(
+          controller.definition.petId,
+          controller.pet.incomePerSecond,
+        );
+      }
+    }
+    this.petTrackerSystem = new PetTrackerSystem(
+      this,
+      this.player,
+      this.roamingSystem,
+      this.progression,
+      this.upgradeSystem,
+    );
     const gateSystem = new ZoneGateSystem(
       [
         this.world.parkGate,
@@ -132,12 +179,17 @@ export class WorldScene extends Phaser.Scene {
       scene: this,
       player: this.player,
       encounters: this.encounters,
+      roamingSystem: this.roamingSystem,
       baseSystem: this.baseSystem,
       gateSystem,
       economy: this.economy,
       progression: this.progression,
       upgradeSystem: this.upgradeSystem,
-      upgradeStation: this.world.upgradeStation,
+      upgradeStations: [
+        { station: this.world.upgradeStation, branchId: UpgradeBranchId.Mobility },
+        { station: this.world.trackingStation, branchId: UpgradeBranchId.Tracking },
+        { station: this.world.stealthStation, branchId: UpgradeBranchId.Stealth },
+      ],
       dragonCourtyard: this.world.dragonCourtyard,
       runStats: this.runStats,
       pathHistory: this.pathHistory,
@@ -197,6 +249,7 @@ export class WorldScene extends Phaser.Scene {
     this.victoryOverlay.update();
     if (this.victoryOverlay.isVisible()) {
       this.developerTools?.update(time);
+      this.playtestSystem.update(time);
       this.player.setVelocity(0, 0);
       this.economy.update(delta);
       this.hud.recordPerformance(time, delta);
@@ -211,6 +264,14 @@ export class WorldScene extends Phaser.Scene {
     this.player.updatePlayer(time, frameInput.movement, frameInput.dashPressed);
     this.pathHistory.record(this.player);
     this.coreLoop.update(time, delta, frameInput.interactPressed);
+    this.playtestSystem.update(time);
+    for (const shortcut of this.world.shortcuts) shortcut.refresh(this.progression);
+    const roamingCount = this.progression.getRoamingPetCount();
+    if (roamingCount !== this.lastRoamingPenCount) {
+      this.lastRoamingPenCount = roamingCount;
+      this.world.roamingPenLabel.setText(`СВОБОДНЫЙ ЗАГОН · ${roamingCount}/6`);
+    }
+    this.petTrackerSystem.update(time, this.coreLoop.getPhase() === 'ESCAPE');
     this.economy.update(delta);
     this.hud.recordPerformance(time, delta);
     this.updateRuntimeHud(time);
@@ -371,6 +432,8 @@ export class WorldScene extends Phaser.Scene {
       resetSave: () => this.resetSave(),
       testV1Migration: () => this.testV1Migration(),
       getSnapshot: () => this.getDeveloperSnapshot(),
+      forceRoamingTired: (petId) => this.roamingSystem.forceTired(petId as RoamingPetId),
+      resetRoaming: (petId) => this.roamingSystem.reset(petId as RoamingPetId),
     });
   }
 
@@ -383,7 +446,10 @@ export class WorldScene extends Phaser.Scene {
         encounter.definition.petHome.x - 70,
         encounter.definition.petHome.y,
       );
+      return;
     }
+    const roaming = this.roamingSystem.getControllers().find((item) => item.definition.petId === petId);
+    if (roaming !== undefined) this.player.setPosition(roaming.pet.x - 90, roaming.pet.y);
   }
 
   private teleportActivePursuerToPlayer(pursuerIndex: number): void {
@@ -449,7 +515,16 @@ export class WorldScene extends Phaser.Scene {
       this.runStats.recordDelivery();
     }
 
-    for (const upgrade of [FAST_DASH_UPGRADE, DOUBLE_DASH_UPGRADE]) {
+    for (const petId of ['roam-01', 'roam-02', 'roam-03', 'roam-04', 'roam-05', 'roam-06'] as const) {
+      if (this.progression.isPetDelivered(petId)) continue;
+      const controller = this.roamingSystem.deliverForDevelopment(petId, this.baseSystem);
+      if (controller === null) continue;
+      this.economy.addIncomeSource(petId, controller.pet.incomePerSecond);
+      this.progression.deliverPet(petId, this.economy.getMoney());
+      this.runStats.recordDelivery();
+    }
+
+    for (const upgrade of Object.values(UPGRADE_DEFINITIONS)) {
       if (this.upgradeSystem.isPurchased(upgrade.id)) {
         continue;
       }
@@ -465,6 +540,7 @@ export class WorldScene extends Phaser.Scene {
 
   private getDeveloperSnapshot(): string {
     return [
+      'DEV RUN — TIME INVALID',
       `stage=${this.progression.getStage()}`,
       `phase=${this.coreLoop.getPhase()}`,
       `active=${this.coreLoop.getActiveEncounterId()}`,
@@ -473,6 +549,7 @@ export class WorldScene extends Phaser.Scene {
       `fps=${this.hud.getCurrentFps().toFixed(0)}/${this.hud.getRollingFps().toFixed(1)}`,
       `frame=${this.hud.getAverageFrameTimeMs().toFixed(2)}ms`,
       `limit=${this.game.loop.fpsLimit}`,
+      'balanceRevision=2',
       `pos=${this.player.x.toFixed(0)},${this.player.y.toFixed(0)}`,
       `park=${this.progression.isZoneUnlocked(ZoneId.Park)}`,
       `hub=${this.progression.isZoneUnlocked(ZoneId.CentralHub)}`,
@@ -486,6 +563,7 @@ export class WorldScene extends Phaser.Scene {
       `pets=${this.encounters
         .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
         .join(',')}`,
+      `roaming=${this.roamingSystem.getControllers().map((item) => item.getDebugSnapshot()).join(',')}`,
       `owners=${this.encounters
         .flatMap((encounter) =>
           encounter.pursuers.map(
@@ -503,11 +581,14 @@ export class WorldScene extends Phaser.Scene {
 
     const progression = this.progression.getSnapshot();
     const saveData: GameSaveData = {
-      saveVersion: 2,
+      saveVersion: 3,
+      balanceRevision: 2,
       money: this.economy.getMoney(),
       deliveredPetIds: progression.deliveredPetIds,
       unlockedZones: progression.unlockedZones,
       purchasedUpgradeIds: this.upgradeSystem.getPurchasedUpgradeIds(),
+      grandfatheredZoneIds: this.grandfatheredZoneIds.filter((zoneId) => progression.unlockedZones.includes(zoneId)),
+      grandfatheredUpgradeIds: this.upgradeSystem.getGrandfatheredUpgradeIds(),
       runStats: this.runStats.getSnapshot(),
     };
     this.saveSystem.save(saveData);
@@ -589,6 +670,7 @@ export class WorldScene extends Phaser.Scene {
     this.inputController.destroy();
     this.hud.destroy();
     this.victoryOverlay.destroy();
+    this.playtestSystem.destroy();
     this.developerTools?.destroy();
   }
 }

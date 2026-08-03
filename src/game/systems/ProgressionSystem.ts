@@ -1,7 +1,9 @@
-import { getPetDefinition, type PetId } from '../data/pets';
+import { getPetDefinition, PetSourceType, PET_DEFINITIONS, type PetId } from '../data/pets';
 import {
   DOUBLE_DASH_UPGRADE,
   FAST_DASH_UPGRADE,
+  QUIET_SHOES_UPGRADE,
+  RUNNER_SHOES_UPGRADE,
   type UpgradeId,
 } from '../data/upgrades';
 import {
@@ -27,18 +29,26 @@ export enum ProgressionStage {
   UnlockPark = 'UNLOCK_PARK',
   StealParkPet = 'STEAL_PARK_PET',
   ReturnParkPet = 'RETURN_PARK_PET',
+  FindFirstRoamingPet = 'FIND_FIRST_ROAMING_PET',
   EarnForCentralHub = 'EARN_FOR_CENTRAL_HUB',
   UnlockCentralHub = 'UNLOCK_CENTRAL_HUB',
   StealHubPet = 'STEAL_HUB_PET',
   ReturnHubPet = 'RETURN_HUB_PET',
   EarnForDashUpgrade = 'EARN_FOR_DASH_UPGRADE',
   BuyDashUpgrade = 'BUY_DASH_UPGRADE',
+  FindTwoRoamingPets = 'FIND_TWO_ROAMING_PETS',
   EarnForRichDistrict = 'EARN_FOR_RICH_DISTRICT',
   UnlockRichDistrict = 'UNLOCK_RICH_DISTRICT',
   StealRichPets = 'STEAL_RICH_PETS',
   ReturnRichPet = 'RETURN_RICH_PET',
+  FindFourRoamingPets = 'FIND_FOUR_ROAMING_PETS',
+  EarnForRunnerShoes = 'EARN_FOR_RUNNER_SHOES',
+  BuyRunnerShoes = 'BUY_RUNNER_SHOES',
   EarnForDoubleDash = 'EARN_FOR_DOUBLE_DASH',
   BuyDoubleDash = 'BUY_DOUBLE_DASH',
+  FindAllRoamingPets = 'FIND_ALL_ROAMING_PETS',
+  EarnForQuietShoes = 'EARN_FOR_QUIET_SHOES',
+  BuyQuietShoes = 'BUY_QUIET_SHOES',
   EarnForVipEstate = 'EARN_FOR_VIP_ESTATE',
   UnlockVipEstate = 'UNLOCK_VIP_ESTATE',
   StealVipPets = 'STEAL_VIP_PETS',
@@ -46,6 +56,7 @@ export enum ProgressionStage {
   DragonAvailable = 'DRAGON_AVAILABLE',
   ReturnDragon = 'RETURN_DRAGON',
   CampaignComplete = 'CAMPAIGN_COMPLETE',
+  ReturnRoamingPet = 'RETURN_ROAMING_PET',
 }
 
 export interface ProgressionSnapshot {
@@ -132,6 +143,14 @@ export class ProgressionSystem {
     return this.countDelivered(VIP_PET_IDS);
   }
 
+  public getRoamingPetCount(): number {
+    let count = 0;
+    for (const petId of this.deliveredPetIds) {
+      if (PET_DEFINITIONS[petId].sourceType === PetSourceType.Roaming) count += 1;
+    }
+    return count;
+  }
+
   public getMissingVipPetId(): (typeof VIP_PET_IDS)[number] | null {
     return (
       VIP_PET_IDS.find((petId) => !this.deliveredPetIds.has(petId)) ?? null
@@ -150,6 +169,8 @@ export class ProgressionSystem {
         return `Исследуй PARK · ${this.stealObjective('cat')}`;
       case ProgressionStage.ReturnParkPet:
         return this.returnObjective('cat');
+      case ProgressionStage.FindFirstRoamingPet:
+        return 'Исследуй мир и найди свободного питомца';
       case ProgressionStage.EarnForCentralHub:
         return this.earnObjective(CENTRAL_HUB_GATE_DEFINITION, money);
       case ProgressionStage.UnlockCentralHub:
@@ -162,6 +183,8 @@ export class ProgressionSystem {
         return `Накопи ${FAST_DASH_UPGRADE.cost} монет на «Быстрый рывок» (${Math.floor(money)}/${FAST_DASH_UPGRADE.cost})`;
       case ProgressionStage.BuyDashUpgrade:
         return 'Купи улучшение «Быстрый рывок» на базе';
+      case ProgressionStage.FindTwoRoamingPets:
+        return `Поймай свободных питомцев: ${this.getRoamingPetCount()}/2`;
       case ProgressionStage.EarnForRichDistrict:
         return this.earnObjective(RICH_DISTRICT_GATE_DEFINITION, money);
       case ProgressionStage.UnlockRichDistrict:
@@ -180,10 +203,22 @@ export class ProgressionSystem {
       }
       case ProgressionStage.ReturnRichPet:
         return this.returnObjective(this.activePetId);
+      case ProgressionStage.FindFourRoamingPets:
+        return `Поймай свободных питомцев: ${this.getRoamingPetCount()}/4`;
+      case ProgressionStage.EarnForRunnerShoes:
+        return `Накопи ${RUNNER_SHOES_UPGRADE.cost} монет на «Беговые кроссовки» (${Math.floor(money)}/${RUNNER_SHOES_UPGRADE.cost})`;
+      case ProgressionStage.BuyRunnerShoes:
+        return 'Купи «Беговые кроссовки» на базе';
       case ProgressionStage.EarnForDoubleDash:
         return `Накопи ${DOUBLE_DASH_UPGRADE.cost} монет на «Двойной рывок» (${Math.floor(money)}/${DOUBLE_DASH_UPGRADE.cost})`;
       case ProgressionStage.BuyDoubleDash:
         return 'Купи улучшение «Двойной рывок» на базе';
+      case ProgressionStage.FindAllRoamingPets:
+        return `Поймай всех свободных питомцев: ${this.getRoamingPetCount()}/6`;
+      case ProgressionStage.EarnForQuietShoes:
+        return `Накопи ${QUIET_SHOES_UPGRADE.cost} монет на «Тихие кроссовки» (${Math.floor(money)}/${QUIET_SHOES_UPGRADE.cost})`;
+      case ProgressionStage.BuyQuietShoes:
+        return 'Купи «Тихие кроссовки» на базе';
       case ProgressionStage.EarnForVipEstate:
         return this.earnObjective(VIP_ESTATE_GATE_DEFINITION, money);
       case ProgressionStage.UnlockVipEstate:
@@ -205,7 +240,11 @@ export class ProgressionSystem {
       case ProgressionStage.ReturnDragon:
         return `ФИНАЛ · ${this.returnObjective('dragon')}`;
       case ProgressionStage.CampaignComplete:
-        return 'Кампания завершена · исследуй мир';
+        return this.getRoamingPetCount() >= 6
+          ? 'Кампания и коллекция завершены · исследуй мир'
+          : `Победа · заверши коллекцию свободных питомцев: ${this.getRoamingPetCount()}/6`;
+      case ProgressionStage.ReturnRoamingPet:
+        return this.returnObjective(this.activePetId);
     }
   }
 
@@ -218,17 +257,24 @@ export class ProgressionSystem {
   }
 
   private deriveStage(money: number): ProgressionStage {
-    if (this.isUpgradePurchased(DOUBLE_DASH_UPGRADE.id)) {
+    if (this.activePetId !== null) {
+      if (PET_DEFINITIONS[this.activePetId].sourceType === PetSourceType.Roaming) return ProgressionStage.ReturnRoamingPet;
+      if (this.activePetId === 'cat') return ProgressionStage.ReturnParkPet;
+      if (this.activePetId === 'fox') return ProgressionStage.ReturnHubPet;
+      if (this.activePetId === 'peacock' || this.activePetId === 'panda') return ProgressionStage.ReturnRichPet;
+      if (this.activePetId === 'vip-a' || this.activePetId === 'vip-b') return ProgressionStage.ReturnVipPet;
+      if (this.activePetId === 'dragon') return ProgressionStage.ReturnDragon;
+    }
+    if (this.deliveredPetIds.has('dragon')) return ProgressionStage.CampaignComplete;
+    if (this.unlockedZones.has(ZoneId.VipEstate)) {
+      if (this.getVipPetDeliveryCount() < VIP_PET_IDS.length) return ProgressionStage.StealVipPets;
+      return ProgressionStage.DragonAvailable;
+    }
+    if (this.isUpgradePurchased(QUIET_SHOES_UPGRADE.id)) {
       if (!this.unlockedZones.has(ZoneId.VipEstate)) {
         return money >= VIP_ESTATE_GATE_DEFINITION.cost
           ? ProgressionStage.UnlockVipEstate
           : ProgressionStage.EarnForVipEstate;
-      }
-      if (this.activePetId === 'vip-a' || this.activePetId === 'vip-b') {
-        return ProgressionStage.ReturnVipPet;
-      }
-      if (this.activePetId === 'dragon') {
-        return ProgressionStage.ReturnDragon;
       }
       if (this.getVipPetDeliveryCount() < VIP_PET_IDS.length) {
         return ProgressionStage.StealVipPets;
@@ -237,40 +283,30 @@ export class ProgressionSystem {
         ? ProgressionStage.CampaignComplete
         : ProgressionStage.DragonAvailable;
     }
+    if (this.isUpgradePurchased(DOUBLE_DASH_UPGRADE.id)) {
+      if (this.getRoamingPetCount() < 6) return ProgressionStage.FindAllRoamingPets;
+      return money >= QUIET_SHOES_UPGRADE.cost ? ProgressionStage.BuyQuietShoes : ProgressionStage.EarnForQuietShoes;
+    }
+    if (this.isUpgradePurchased(RUNNER_SHOES_UPGRADE.id)) {
+      return money >= DOUBLE_DASH_UPGRADE.cost ? ProgressionStage.BuyDoubleDash : ProgressionStage.EarnForDoubleDash;
+    }
     if (this.isUpgradePurchased(FAST_DASH_UPGRADE.id)) {
+      if (this.getRoamingPetCount() < 2) return ProgressionStage.FindTwoRoamingPets;
       if (!this.unlockedZones.has(ZoneId.RichDistrict)) {
         return money >= RICH_DISTRICT_GATE_DEFINITION.cost
           ? ProgressionStage.UnlockRichDistrict
           : ProgressionStage.EarnForRichDistrict;
       }
-      if (this.activePetId === 'peacock' || this.activePetId === 'panda') {
-        return ProgressionStage.ReturnRichPet;
-      }
       if (this.getRichPetDeliveryCount() < RICH_PET_IDS.length) {
         return ProgressionStage.StealRichPets;
       }
-      return money >= DOUBLE_DASH_UPGRADE.cost
-        ? ProgressionStage.BuyDoubleDash
-        : ProgressionStage.EarnForDoubleDash;
+      if (this.getRoamingPetCount() < 4) return ProgressionStage.FindFourRoamingPets;
+      return money >= RUNNER_SHOES_UPGRADE.cost ? ProgressionStage.BuyRunnerShoes : ProgressionStage.EarnForRunnerShoes;
     }
     if (this.deliveredPetIds.has('fox')) {
       return money >= FAST_DASH_UPGRADE.cost
         ? ProgressionStage.BuyDashUpgrade
         : ProgressionStage.EarnForDashUpgrade;
-    }
-    if (this.activePetId === 'fox') {
-      return ProgressionStage.ReturnHubPet;
-    }
-    if (this.deliveredPetIds.has('cat')) {
-      if (!this.unlockedZones.has(ZoneId.CentralHub)) {
-        return money >= CENTRAL_HUB_GATE_DEFINITION.cost
-          ? ProgressionStage.UnlockCentralHub
-          : ProgressionStage.EarnForCentralHub;
-      }
-      return ProgressionStage.StealHubPet;
-    }
-    if (this.activePetId === 'cat') {
-      return ProgressionStage.ReturnParkPet;
     }
     if (!this.deliveredPetIds.has('dog')) {
       return ProgressionStage.FirstPet;
@@ -280,7 +316,13 @@ export class ProgressionSystem {
         ? ProgressionStage.UnlockPark
         : ProgressionStage.EarnForPark;
     }
-    return ProgressionStage.StealParkPet;
+    if (!this.deliveredPetIds.has('cat')) return ProgressionStage.StealParkPet;
+    if (this.getRoamingPetCount() < 1) return ProgressionStage.FindFirstRoamingPet;
+    return !this.unlockedZones.has(ZoneId.CentralHub)
+      ? money >= CENTRAL_HUB_GATE_DEFINITION.cost
+        ? ProgressionStage.UnlockCentralHub
+        : ProgressionStage.EarnForCentralHub
+      : ProgressionStage.StealHubPet;
   }
 
   private countDelivered(petIds: readonly PetId[]): number {

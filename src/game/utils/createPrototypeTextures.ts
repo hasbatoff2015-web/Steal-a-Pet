@@ -226,6 +226,36 @@ export function createPrototypeTextures(scene: Phaser.Scene): void {
     graphics.fillRoundedRect(39, 47, 14, 13, 6);
   });
 
+  for (const [key, color, accent, ears, tail] of [
+    ['roam-jumper', 0xf2c94c, 0xfff2a8, true, false],
+    ['roam-raccoon', 0x7f8c9a, 0x303944, true, true],
+    ['roam-alpaca', 0xe7c7a3, 0xfff2df, false, false],
+    ['roam-chameleon', 0x53bd76, 0xd8ff7b, false, true],
+    ['roam-gazelle', 0xdca866, 0x6e4229, true, false],
+    ['roam-griffin', 0xb978d4, 0xffd45a, true, true],
+  ] as const) {
+    generate(scene, key, 68, 60, (graphics) => {
+      graphics.fillStyle(color);
+      if (ears) {
+        graphics.fillTriangle(12, 19, 18, 2, 27, 19);
+        graphics.fillTriangle(48, 19, 54, 2, 59, 21);
+      }
+      graphics.fillEllipse(34, 31, key === 'roam-alpaca' ? 33 : 43, key === 'roam-chameleon' ? 25 : 35);
+      if (key === 'roam-alpaca') graphics.fillRoundedRect(27, 5, 15, 28, 7);
+      if (tail) {
+        graphics.lineStyle(8, accent, 1);
+        graphics.beginPath(); graphics.moveTo(52, 34); graphics.lineTo(65, 25); graphics.strokePath();
+      }
+      if (key === 'roam-griffin') {
+        graphics.fillStyle(accent, 0.9); graphics.fillTriangle(18, 29, 2, 16, 8, 40); graphics.fillTriangle(50, 29, 66, 16, 60, 40);
+      }
+      graphics.fillStyle(accent); graphics.fillEllipse(34, 38, 18, 11);
+      graphics.fillStyle(0xffffff); graphics.fillCircle(27, 27, 5); graphics.fillCircle(42, 27, 5);
+      graphics.fillStyle(0x25303b); graphics.fillCircle(28, 27, 2); graphics.fillCircle(43, 27, 2);
+      graphics.fillStyle(color); graphics.fillRoundedRect(19, 45, 9, 12, 4); graphics.fillRoundedRect(40, 45, 9, 12, 4);
+    });
+  }
+
   generate(scene, 'rich-hedge', 96, 34, (graphics) => {
     graphics.fillStyle(0x2f794d);
     graphics.fillRoundedRect(0, 6, 96, 28, 13);

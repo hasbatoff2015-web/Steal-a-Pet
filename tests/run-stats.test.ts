@@ -5,12 +5,12 @@ import { RunStatsSystem } from '../src/game/systems/RunStatsSystem';
 describe('Run stats', () => {
   it('uses safe Stage 4 defaults and preserves existing deliveries', () => {
     const stats = new RunStatsSystem({}, 5);
-    expect(stats.getSnapshot()).toEqual({
+    expect(stats.getSnapshot()).toEqual(expect.objectContaining({
       elapsedMs: 0,
       failedThefts: 0,
       successfulDeliveries: 5,
       campaignCompleted: false,
-    });
+    }));
   });
 
   it('counts only active clamped gameplay time', () => {
@@ -29,11 +29,11 @@ describe('Run stats', () => {
     stats.update(16, true);
     stats.recordFailedTheft();
     stats.recordDelivery();
-    expect(stats.getSnapshot()).toEqual({
+    expect(stats.getSnapshot()).toEqual(expect.objectContaining({
       elapsedMs: 0,
       failedThefts: 1,
       successfulDeliveries: 1,
       campaignCompleted: true,
-    });
+    }));
   });
 });

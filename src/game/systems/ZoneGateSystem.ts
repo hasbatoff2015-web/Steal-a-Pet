@@ -58,8 +58,9 @@ export class ZoneGateSystem {
   private arePrerequisitesMet(gate: ZoneGate): boolean {
     return areZoneGatePrerequisitesMet(gate.definition, {
       isPetDelivered: (petId) => this.progression.isPetDelivered(petId),
-      isUpgradePurchased: (upgradeId) => this.upgrades.isPurchased(upgradeId),
-      isZoneUnlocked: (zoneId) => this.progression.isZoneUnlocked(zoneId),
+      isUpgradePurchased: (upgradeId) => this.upgrades.isPurchased(upgradeId as import('../data/upgrades').UpgradeId),
+      isZoneUnlocked: (zoneId) => this.progression.isZoneUnlocked(zoneId as import('../data/zones').ZoneId),
+      getRoamingPetCount: () => this.progression.getRoamingPetCount(),
     });
   }
 }

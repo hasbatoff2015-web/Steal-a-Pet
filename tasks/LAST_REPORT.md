@@ -1,121 +1,106 @@
 # Последний выполненный этап
 
-Этап 5 — VIP Estate, Final Heist and Campaign Completion.
-
 ## Что сделано
 
-- `VIP ESTATE` превращён из preview в полноценную prototype-зону: gate за 800 монет, центральная аллея, западное и восточное крыло, сады, фонтаны, охранные посты и закрытый двор Дракона.
-- Gate использует общую data-driven модель и требует RICH DISTRICT, пять доставленных питомцев, Fast Dash и Double Dash. Деньги реально списываются, а физическая коллизия прохода снимается.
-- Добавлены стабильные gameplay ids `vip-a`, `vip-b`, `dragon`. Временные имена, визуальные ключи, редкость, доход и prototype motion хранятся в `PetDefinition`, поэтому замена персонажей не требует менять progression или encounters.
-- Добавлены два независимых VIP encounters. Золотая Капибара `RARE` даёт `+24/сек`, Королевская Сова `RARE` — `+36/сек`; их можно доставить в любом порядке.
-- Каждый VIP-питомец отключает один визуальный seal. При `2/2` центральный двор физически открывается и появляется цель Дракона.
-- Финальная кража Дракона использует существующую модель `pursuers[]`: boss стартует сразу, Guard A — через 700 мс, Guard B — через 1400 мс. Поимка любым активным NPC обрабатывается один раз, отменяет остальные delayed activations и оставляет возможность повторной попытки.
-- Для дальних VIP/Dragon pursuers добавлен data-driven визуальный reset через 6 секунд после начала возврата. Обычные encounters Этапов 1–4 продолжают использовать прежнее поведение.
-- База расширена до восьми раздельных slots. Все питомцы видимы, имеют лёгкое idle-движение; Дракон занимает выделенное крупное место. Итоговый доход после кампании — `+192/сек`.
-- `ProgressionSystem` расширен до `CAMPAIGN_COMPLETE`. Порядок VIP-питомцев выводится из `deliveredPetIds`, без отдельных комбинаторных веток.
-- Добавлен `RunStatsSystem`: активное время прохождения, успешные доставки, провалы и факт завершения. Скрытое/paused время не начисляется, а abnormal delta ограничен.
-- Save остаётся `saveVersion: 2`; `runStats` добавлен как совместимое optional-поле. Старые корректные Stage 4 saves принимаются с безопасными defaults, а нелогичные VIP/Dragon facts отклоняются.
-- После доставки Дракона показывается responsive victory overlay со статистикой, действиями «Продолжить играть» и подтверждаемым «Начать заново». Continue переводит игру в свободное исследование; полный save при reload восстанавливается без повторного overlay.
-- Dev-инструменты расширены переходами к VIP/Dragon, подготовкой prerequisites, выдачей 800 монет и проверкой третьего преследователя.
-- HUD проверен с итоговой строкой `+192/сек`; для landscape добавлен безопасный зазор между money и objective panels.
-- Создан подробный `docs/ASSET_PLAN.md` для последующей замены prototype-графики. Финальные изображения и Stage 6 не создавались.
+Завершён Этап 6 — World Expansion, Roaming Pet AI, Upgrade Paths and Economy Rebalance.
+
+- Мир расширен с `3840 × 2560` до `4608 × 3072`; добавлены внешний маршрут, шесть именованных roaming-территорий и дополнительные prototype-слои без world-sized texture.
+- Сохранены пять основных ZoneId и восемь heist encounters. Скорости владельцев, catch distance, dash speed/duration и основная механика кражи/погони не менялись.
+- Добавлены шесть roaming pets со стабильными ids `roam-01…06`, source type ROAMING, утверждёнными зонами/редкостями/доходом и различимыми prototype silhouettes.
+- Реализован лёгкий AI: IDLE/WANDERING/ALERT/FLEEING/TIRED/FOLLOWING/AT_PLAYER_BASE, безопасные waypoint graphs, выбор связанной цели дальше от игрока, stamina, tired capture window, recovery, territory/stuck reset и throttled offscreen update.
+- Захваченный roaming pet переходит в общий `Pet`, использует существующий `PlayerPathHistory`, delivery/base/economy/save pipeline. Одновременно активен только один heist/capture; остальные interactions блокируются.
+- База расширена до 14 раздельных slots. Добавлен roaming-загон на шесть мест с dirty label `x/6` и три physical upgrade stations.
+- Добавлены четыре derived shortcuts: после Кота, Лисы, пары Павлин+Панда и пары VIP A+VIP B. Отдельные save flags не используются; первичные платные gates не обходятся.
+- Введён `balanceRevision: 2` со всеми утверждёнными доходами, ценами зон и upgrades. Итоговые суммы: core `95/сек`, roaming `12/сек`, коллекция `107/сек`.
+- Upgrade definitions переведены на типизированные `effects[]`. Реализованы Трекер питомцев, Улучшенная приманка, Быстрый рывок, Беговые кроссовки, Двойной рывок и Тихие кроссовки.
+- Общий prerequisite evaluator поддерживает required pets, zones, upgrades и roaming count; его используют gates и upgrades.
+- Трекер показывает приблизительное восьминаправленное направление к ближайшему доступному roaming pet, скрывается при active carry и не ведёт в закрытую зону.
+- Quiet Shoes применяет data-driven bonuses при старте encounter: head start `+200 мс`, pursuer activation delay `+300 мс`; скорости/catch distance не меняются.
+- Save переведён на v3. Реализованы v2→v3 migration, v1 chain, `balanceRevision`, grandfathered zones/upgrades, строгая validation, сохранение milestone/run counters и восстановление мира/дохода из definitions.
+- Старый completed save остаётся победой при `8/14`. Чистая новая кампания приходит к Дракону через шесть roaming pets; Victory Overlay показывает динамический `x/14`. Последний roaming pet после старой победы даёт «КОЛЛЕКЦИЯ ЗАВЕРШЕНА!» без второго overlay.
+- Добавлен честный `?playtest=1`: compact snapshot ≤4 Hz, 18 one-shot milestones и копируемый обезличенный отчёт. Existing-save run помечается TIME INVALID; `?dev=1` начинается с `DEV RUN — TIME INVALID`.
+- Dev tools расширены переходами к roaming pets, force tired/reset, delivery/precondition controls и snapshot AI/balance state.
 
 ## Изменённые/созданные файлы
 
-Созданы:
+Основные новые файлы:
 
-- `docs/ASSET_PLAN.md`
-- `src/game/systems/RunStatsSystem.ts`
-- `src/game/ui/VictoryOverlay.ts`
-- `src/game/world/DragonCourtyard.ts`
-- `tests/run-stats.test.ts`
+- `docs/BALANCE_MODEL.md`;
+- `src/game/data/prerequisites.ts`;
+- `src/game/data/roamingPets.ts`;
+- `src/game/data/shortcuts.ts`;
+- `src/game/systems/RoamingAiModel.ts`;
+- `src/game/systems/RoamingPetController.ts`;
+- `src/game/systems/RoamingPetSystem.ts`;
+- `src/game/systems/PetTrackerSystem.ts`;
+- `src/game/systems/PlaytestSystem.ts`;
+- `src/game/world/ProgressShortcut.ts`;
+- `tests/economy-balance.test.ts`;
+- `tests/roaming-ai.test.ts`.
 
-Удалён устаревший preview:
+Существенно обновлены:
 
-- `src/game/world/VipEstatePreview.ts`
-
-Основные изменённые файлы:
-
-- `index.html`, `README.md`
-- `src/game/data/encounters.ts`
-- `src/game/data/pets.ts`
-- `src/game/data/worldLayout.ts`
-- `src/game/data/zones.ts`
-- `src/game/entities/OwnerNpc.ts`
-- `src/game/entities/Pet.ts`
-- `src/game/entities/Player.ts`
-- `src/game/scenes/WorldScene.ts`
-- `src/game/systems/CoreLoopSystem.ts`
-- `src/game/systems/DashChargeController.ts`
-- `src/game/systems/EconomySystem.ts`
-- `src/game/systems/PetEncounter.ts`
-- `src/game/systems/ProgressionSystem.ts`
-- `src/game/systems/SaveSystem.ts`
-- `src/game/ui/Hud.ts`
-- `src/game/utils/DeveloperTools.ts`
-- `src/game/utils/createPrototypeTextures.ts`
-- `src/game/world/WorldBuilder.ts`
-- `tests/dash-charges.test.ts`
-- `tests/gate-prerequisites.test.ts`
-- `tests/progression.test.ts`
-- `tests/save-validation.test.ts`
-- `docs/ART_DIRECTION.md`
-- `docs/DEVELOPMENT_LOG.md`
-- `docs/ECONOMY.md`
-- `docs/GAME_DESIGN.md`
-- `docs/MAP.md`
-- `docs/TECH_ARCHITECTURE.md`
-- `tasks/CURRENT_TASK.md`
-- `tasks/LAST_REPORT.md`
+- `src/game/data/pets.ts`, `upgrades.ts`, `zones.ts`, `worldLayout.ts`;
+- `src/game/entities/Player.ts`, `Pet.ts`;
+- `src/game/systems/CoreLoopSystem.ts`, `ProgressionSystem.ts`, `UpgradeSystem.ts`, `SaveSystem.ts`, `RunStatsSystem.ts`, `PetEncounter.ts`, `ZoneGateSystem.ts`;
+- `src/game/scenes/WorldScene.ts`;
+- `src/game/world/WorldBuilder.ts`, `UpgradeStation.ts`-compatible station flow;
+- `src/game/ui/VictoryOverlay.ts`, prototype textures и DeveloperTools;
+- unit tests prerequisites/progression/save/run stats;
+- `README.md`, `docs/GAME_DESIGN.md`, `MAP.md`, `ECONOMY.md`, `TECH_ARCHITECTURE.md`, `ASSET_PLAN.md`, `DEVELOPMENT_LOG.md`;
+- `tasks/CURRENT_TASK.md`, `tasks/LAST_REPORT.md`.
 
 ## Технические решения
 
-- Стабильный `PetId` является связующим ключом для definitions, encounters, progression, saves, base slots и navigation. `displayName` и `visualKey` остаются заменяемыми данными.
-- `PetEncounterDefinition` получил `requiredPetIds`, индивидуальные activation messages и `returnResetAfterMs`; финальная погоня не имеет отдельной boss-only системы.
-- `CoreLoopSystem` хранит только текущий active encounter и индексирует все encounters по `PetId`. Доставка, провал и delayed pursuers проходят через один общий жизненный цикл.
-- Состояние двух seals выводится из фактов доставки `vip-a`/`vip-b`; transient состояние замков не дублируется в save.
-- Campaign completion выводится из доставки `dragon`. Victory overlay является presentation-слоем и не хранится в save.
-- `RunStatsSystem` обновляется централизованно из сцены и событий core loop; UI только отображает готовый snapshot.
-- При `visibilitychange` physics приостанавливается, save фиксируется, а после возврата сдвигаются абсолютные timestamps dash/encounters и очищается breadcrumb history.
-- Экономика сохраняет cached total income; pet/NPC prototype idle visuals обновляются с ограниченной частотой, чтобы восемь питомцев и три финальных pursuer не создавали лишнюю нагрузку.
-- `main` получил keyboard focus target (`tabindex`) для более надёжного desktop-ввода после взаимодействия с canvas.
+- `PetDefinition.sourceType` различает HEIST/ROAMING, но после capture сущность и downstream-системы общие.
+- Roaming state transition/stamina logic вынесена в pure `RoamingAiModel`; Phaser movement/render находится в controller.
+- Waypoints — данные, а не Phaser objects. Каждый graph содержит 7–10 узлов, только соседние безопасные связи; решения принимаются по interval, движение остаётся delta-based.
+- Offscreen roaming update выполняется примерно 3.3 раза/сек. Cached waypoint maps и cached upgrade effect arrays устраняют ненужные per-frame allocations.
+- `UpgradeSystem` кэширует effect values при покупке; Player не проверяет upgrade ids в update.
+- Runner `×1.10` применяется только к обычной скорости. Существующий pet catch-up быстрее новой скорости игрока, поэтому breadcrumb following сохраняет запас.
+- Shortcuts выводятся из delivered facts и поэтому автоматически восстанавливаются после reload без расширения save schema.
+- v3 migration grandfathering разрешает только уже существующие факты старого save; новые покупки/зоны проходят revision-2 prerequisites.
+- Income не сохраняется числом: все sources восстанавливаются из delivered ids и актуальных definitions, исключая дубли.
+- World static art остаётся prototype Graphics/маленькими generated textures; одна текстура `4608 × 3072` не создаётся.
 
 ## Проверки
 
-- Baseline до изменений: `npm run typecheck`, 5 test files / 11 tests и `npm run build` проходили.
-- Финальный `npm run typecheck`: успешно.
-- Финальный `npm run test`: успешно, 6 test files / 23 tests.
-- Финальный `npm run build`: успешно, 39 modules; bundle `1,502.00 kB`, gzip `391.61 kB`.
-- `npm run dev -- --host 127.0.0.1 --port 5174`: сервер ответил HTTP 200.
-- `npm run preview`: production build ответил HTTP 200 на `127.0.0.1:4173`.
-- `git diff --check`: успешно; только предупреждения Git о будущей нормализации LF → CRLF.
-- Browser console: ошибок и warning приложения не обнаружено; присутствуют только информационные сообщения Phaser.
-- Runtime новой игры/Stage 4 compatibility: dev reset начинает с 0 монет и восьми world pets; V1 migration восстановила Dog/Cat, PARK и `+3/сек`; валидный Stage 4 v2 дополнительно покрыт unit test.
-- VIP gate: prerequisites, цена 800, списание и физическое открытие проверены в production preview.
-- Обе очередности VIP-питомцев покрыты unit test и runtime: A → B и B → A. После первого питомца было `1/2`, после второго — `2/2`, доход менялся `+32 → +56/+68 → +92` в зависимости от порядка.
-- Dragon chase: подтверждена активация boss, Guard A и Guard B; отдельная поимка Guard B вернула Дракона, увеличила fail count ровно один раз, отменила погоню и позволила retry после визуального reset.
-- Победа: доставка Дракона дала восемь питомцев, `+192/сек`, `CAMPAIGN_COMPLETE`, статистику и victory overlay. Continue через Enter вернул free roam. Reload полного save восстановил восемь питомцев, все zones/upgrades, seals `2/2`, dash `2/2`, доход `+192/сек` и completed objective без повторного overlay.
-- Mobile layout проверен на ширинах 320, 360 и 430 px, а также landscape `844×430`: objective, money `+192/сек` и dash button не пересекаются. Узкий victory layout визуально помещается в canvas; dev HTML-панель частично перекрывает его только в `?dev=1` и отсутствует в обычной игре.
-- Simultaneous touch опирается на сохранённый `activePointers: 3`; новые VIP/Dragon interactions используют тот же contextual action path, что проверенные gate/theft interactions предыдущих этапов. Полноценное аппаратное multi-touch двумя пальцами автоматизировать в текущем browser harness нельзя.
-- Наблюдаемая производительность production preview в in-app Chromium: обычно около 47–50 FPS / 20–22 мс с восемью питомцами на базе; во время Dragon chase ранее наблюдалось около 57 FPS / 17,4 мс. Target/limit 60 сохранён. Результат зависит от нагрузки browser automation и требует проверки на целевых телефонах.
-- Ускоренный dev QA run с teleport завершился за `1:06`, но это не является реальным временем кампании. Полное прохождение без teleport и dev money в этой сессии надёжно измерить не удалось; значение не выдумывалось.
+### Автоматические
+
+- `npm run typecheck` — успешно.
+- `npm test` — успешно: 8 test files, 26 tests.
+- `npm run build` — успешно: 48 modules, production JS около 1.54 MB / gzip около 402 KB.
+- `npm run preview -- --host 127.0.0.1` — Vite preview успешно запустился на `127.0.0.1:4173`; процесс остановлен по контрольному timeout.
+- `git diff --check` — успешно; остаются только информационные Windows LF→CRLF warnings.
+- Проверены unit-сценарии waypoint neighbor/flee choice, stamina/tired/recovery/capture/delivery, точные income checkpoints, отсутствие duplicate income source, thresholds gates/upgrades, typed effects, campaign stages, строгий v3 save, v2 migration/grandfathering и completed `8/14` compatibility.
+
+### Функциональный QA
+
+- Статически проверены единый active-pet arbitration, touch interaction path, breadcrumb follow, delivery, income restore, shortcut derivation, station branches, Tracker zone filtering, Quiet encounter modifiers, dynamic victory count и post-victory collection.
+- Production/dev server startup подтверждён.
+- Полноценную интерактивную браузерную сессию и console capture выполнить не удалось: локальный URL был отклонён политикой встроенного browser-control окружения. Это ограничение инструмента, а не обнаруженная runtime-ошибка игры.
+- Поэтому физическое прохождение всех 8 heists + 6 roaming captures, ручная проверка mobile 320/360/390/430 и landscape 844×430, субъективная читаемость subareas и FPS при `14/14` требуют ручного Game Director QA.
+
+### Normal run
+
+`REAL NORMAL-RUN TIME NOT MEASURED`.
+
+Результат `1:06` не использовался. Таблица observed normal runs в `docs/BALANCE_MODEL.md` оставлена пустой до честного прохождения с чистого save без dev/teleports/add money/forced delivery.
 
 ## Остались проблемы
 
-- Vite предупреждает о единственном minified chunk больше 500 kB. Основная причина — Phaser; build корректен. Code splitting можно рассмотреть перед публикацией, если появится измеримая проблема загрузки.
-- В in-app Chromium с полной базой observed FPS иногда находится в диапазоне 45–50, хотя loop ограничен 60. Явных runtime allocations или console errors не найдено; необходим замер на нескольких реальных мобильных устройствах.
-- Фактические prototype-расстояния внутри выделенного северо-восточного сектора VIP Estate дают примерно 3–5 секунд прямого движения от gate до ближайшего крыла и между крыльями, а не ориентир 10–18 секунд. При мире `3840×2560`, скорости игрока 230 px/с и требовании не создавать лабиринт этот ориентир конфликтует с компактной геометрией зоны. Скорость, размер мира и утверждённую карту самостоятельно не менял.
-- Реальное время полного прохождения без teleport не измерено. Нужен ручной balance/playability pass Game Director на чистом save.
-- Кнопка Continue проверена runtime. Confirmation flow New Game реализован и использует тот же `SaveSystem.clear()`/reload path, что dev reset, но полный pointer test обеих кнопок на обычном mobile viewport следует повторить без dev overlay.
+- Vite предупреждает о production chunk больше 500 KB; основная причина — Phaser bundle. Это не ошибка build и не блокирует статическую публикацию, но размер следует учитывать перед релизом.
+- Нужен ручной runtime/mobile/performance pass на реальном браузере и устройстве, особенно для длинных маршрутов roaming AI, взаимного расположения новых prototype-territories, трёх stations, tracker indicator и Victory Overlay с третьей кнопкой.
+- Фактическое время clean campaign и ощущение утверждённых ожиданий 25/40/67/80 секунд не измерены; баланс не менялся.
+- Prototype coordinates, силуэты и декоративная плотность требуют визуального review перед production art.
 
 ## Требуется решение Game Director
 
-- Подтвердить или скорректировать требование 10–18 секунд внутри VIP Estate с учётом фиксированного мира и текущей скорости игрока. Возможные изменения затрагивают утверждённую карту/скорость и поэтому не внесены молча.
-- Провести ручное полное прохождение без dev tools, зафиксировать реальное время кампании и ощущения от накопления 800 монет.
-- Проверить simultaneous joystick + dash/interaction на реальном touch-устройстве и обе кнопки victory overlay.
-- Утвердить либо заменить временные образы `vip-a`, `vip-b` и `dragon` до начала производства финальных ассетов.
+- Принять или скорректировать prototype layout шести subareas и расположение roaming-загон/трёх stations после ручного просмотра.
+- Провести честный `?playtest=1` run и решить, попадает ли revision 2 в целевые 16–22 минуты без изменения утверждённых значений до получения измерения.
+- Утвердить финальные brainrot-концепты/имена `vip-a`, `vip-b`, `roam-01…06` перед визуальным этапом.
 
 ## Предложения Codex
 
-- После review Этапа 5 использовать `docs/ASSET_PLAN.md` для одного ограниченного visual pilot: один персонаж, один питомец, один небольшой участок зоны и HUD. Не начинать массовое производство ассетов до проверки масштаба, origins, collision footprint и читаемости на 320 px.
-- Перед публикационной оптимизацией снять WebGL/profile trace на целевом Android-устройстве; менять render architecture или chunking только по результатам измерения.
+- Перед стартом visual vertical slice выполнить один desktop и один mobile clean run с копированием playtest report; сначала проверять активность между покупками, а не менять цены по субъективному ожиданию без milestone данных.
+- На визуальном этапе сохранить stable PetId/visualKey separation и общий roaming state indicator set, чтобы 14 production pets не потребовали изменения gameplay-кода.

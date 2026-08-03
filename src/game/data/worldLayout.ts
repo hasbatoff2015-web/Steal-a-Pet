@@ -25,6 +25,8 @@ export interface PrototypeWorldLayout {
   dragonNavigationMarker: Phaser.Math.Vector2;
   upgradeNavigationMarker: Phaser.Math.Vector2;
   upgradeStationPosition: Phaser.Math.Vector2;
+  trackingStationPosition: Phaser.Math.Vector2;
+  stealthStationPosition: Phaser.Math.Vector2;
 }
 
 export const PROTOTYPE_LAYOUT = {
@@ -39,6 +41,12 @@ export const PROTOTYPE_LAYOUT = {
     'vip-a': { x: 735, y: 2235 },
     'vip-b': { x: 585, y: 2295 },
     dragon: { x: 700, y: 2290 },
+    'roam-01': { x: 360, y: 2525 },
+    'roam-02': { x: 440, y: 2525 },
+    'roam-03': { x: 520, y: 2525 },
+    'roam-04': { x: 360, y: 2605 },
+    'roam-05': { x: 440, y: 2605 },
+    'roam-06': { x: 520, y: 2605 },
   },
   parkGatePosition: { x: 900, y: 1080 },
   parkGateInteractionPoint: { x: 900, y: 1165 },
@@ -60,5 +68,7 @@ export const PROTOTYPE_LAYOUT = {
   vipBNavigationMarker: { x: 3740, y: 590 },
   dragonNavigationMarker: { x: 3340, y: 430 },
   upgradeNavigationMarker: { x: 815, y: 1970 },
-  upgradeStationPosition: { x: 815, y: 1970 },
+  upgradeStationPosition: { x: 820, y: 1900 },
+  trackingStationPosition: { x: 1030, y: 2010 },
+  stealthStationPosition: { x: 1030, y: 2220 },
 } as const;

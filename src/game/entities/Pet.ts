@@ -54,6 +54,23 @@ export class Pet extends Phaser.GameObjects.Sprite {
     return this.petState;
   }
 
+  public setRoamingPosition(x: number, y: number): void {
+    this.idleAnchor.set(x, y);
+    this.setPosition(x, y);
+    this.shadow.setPosition(x, y + 16);
+    this.updateDepth();
+  }
+
+  public setRoamingFeedback(tired: boolean): void {
+    if (tired) this.setTint(0xbde8ff);
+    else this.clearTint();
+  }
+
+  public setPetVisible(visible: boolean): void {
+    this.setVisible(visible);
+    this.shadow.setVisible(visible);
+  }
+
   public startFollowing(): void {
     this.petState = PetState.FollowingPlayer;
     this.lastBreadcrumbSequence = null;

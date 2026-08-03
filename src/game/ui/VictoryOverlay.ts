@@ -12,6 +12,7 @@ export interface VictorySummary {
 export interface VictoryOverlayActions {
   readonly onContinue: () => void;
   readonly onNewGame: () => void;
+  readonly onCopyReport?: () => Promise<boolean>;
 }
 
 export class VictoryOverlay {
@@ -27,6 +28,8 @@ export class VictoryOverlay {
   private readonly newGameButton: Phaser.GameObjects.Rectangle;
   private readonly newGameLabel: Phaser.GameObjects.Text;
   private readonly confirmText: Phaser.GameObjects.Text;
+  private readonly copyButton: Phaser.GameObjects.Rectangle;
+  private readonly copyLabel: Phaser.GameObjects.Text;
   private readonly enterKey: Phaser.Input.Keyboard.Key;
   private readonly newGameKey: Phaser.Input.Keyboard.Key;
   private readonly escapeKey: Phaser.Input.Keyboard.Key;
@@ -62,7 +65,7 @@ export class VictoryOverlay {
       })
       .setOrigin(0.5);
     this.subtitle = scene.add
-      .text(0, 0, 'ТЫ УКРАЛ ВСЕХ ПИТОМЦЕВ', {
+      .text(0, 0, 'ДРАКОН ДОСТАВЛЕН НА БАЗУ', {
         align: 'center',
         fontFamily: 'Arial, sans-serif',
         fontSize: '22px',
@@ -122,6 +125,12 @@ export class VictoryOverlay {
         color: '#ffffff',
       })
       .setOrigin(0.5);
+    this.copyButton = scene.add.rectangle(0, 0, 250, 46, 0x356b8f, 1)
+      .setStrokeStyle(3, 0xc7eeff, 0.9).setInteractive({ useHandCursor: true })
+      .setVisible(actions.onCopyReport !== undefined);
+    this.copyLabel = scene.add.text(0, 0, 'СКОПИРОВАТЬ ОТЧЁТ', {
+      fontFamily: 'Arial, sans-serif', fontSize: '14px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5).setVisible(actions.onCopyReport !== undefined);
 
     this.primaryButton.on('pointerdown', this.handlePrimary, this);
     this.primaryLabel.setInteractive({ useHandCursor: true });
@@ -129,6 +138,8 @@ export class VictoryOverlay {
     this.newGameButton.on('pointerdown', this.handleNewGame, this);
     this.newGameLabel.setInteractive({ useHandCursor: true });
     this.newGameLabel.on('pointerdown', this.handleNewGame, this);
+    this.copyButton.on('pointerdown', this.handleCopyReport, this);
+    this.copyLabel.setInteractive({ useHandCursor: true }).on('pointerdown', this.handleCopyReport, this);
 
     this.container = scene.add
       .container(0, 0, [
@@ -143,6 +154,8 @@ export class VictoryOverlay {
         this.primaryLabel,
         this.newGameButton,
         this.newGameLabel,
+        this.copyButton,
+        this.copyLabel,
       ])
       .setScrollFactor(0)
       .setDepth(DEPTH.ui + 20)
@@ -156,7 +169,7 @@ export class VictoryOverlay {
     this.confirmingNewGame = false;
     this.refreshConfirmationState();
     this.stats.setText([
-      `Питомцев доставлено: ${summary.deliveredPets}`,
+      `Питомцев доставлено: ${summary.deliveredPets}/14`,
       `Время прохождения: ${formatElapsedTime(summary.elapsedMs)}`,
       `Проваленных краж: ${summary.failedThefts}`,
       `Итоговый доход: +${summary.incomePerSecond}/сек`,
@@ -220,6 +233,11 @@ export class VictoryOverlay {
     this.refreshConfirmationState();
   }
 
+  private async handleCopyReport(): Promise<void> {
+    const copied = await this.actions.onCopyReport?.();
+    this.copyLabel.setText(copied ? 'ОТЧЁТ СКОПИРОВАН' : 'ОТЧЁТ ОТКРЫТ ДЛЯ КОПИРОВАНИЯ');
+  }
+
   private refreshConfirmationState(): void {
     this.confirmText.setVisible(this.confirmingNewGame);
     this.primaryLabel.setText(
@@ -258,20 +276,28 @@ export class VictoryOverlay {
       .setFontSize(compact ? 14 : 17);
 
     const horizontalButtons = panelWidth >= 560;
+    const hasCopyButton = this.actions.onCopyReport !== undefined;
     const buttonWidth = horizontalButtons ? 250 : Math.min(270, panelWidth - 40);
     const buttonHeight = compact ? 50 : 58;
-    const buttonY = centerY + panelHeight * (horizontalButtons ? 0.28 : 0.24);
+    const buttonY = centerY + panelHeight * (
+      horizontalButtons ? 0.28 : hasCopyButton ? 0.18 : 0.24
+    );
     const firstX = horizontalButtons ? centerX - 138 : centerX;
     const secondX = horizontalButtons ? centerX + 138 : centerX;
-    const secondY = horizontalButtons ? buttonY : buttonY + buttonHeight + 10;
+    const secondY = horizontalButtons ? buttonY : buttonY + buttonHeight + 8;
 
     this.primaryButton.setPosition(firstX, buttonY).setSize(buttonWidth, buttonHeight);
     this.primaryLabel.setPosition(firstX, buttonY).setFontSize(compact ? 14 : 16);
     this.newGameButton.setPosition(secondX, secondY).setSize(buttonWidth, buttonHeight);
     this.newGameLabel.setPosition(secondX, secondY).setFontSize(compact ? 14 : 16);
+    const copyY = horizontalButtons
+      ? centerY + panelHeight * 0.41
+      : secondY + buttonHeight / 2 + (compact ? 28 : 31);
+    this.copyButton.setPosition(centerX, copyY).setSize(buttonWidth, compact ? 40 : 46);
+    this.copyLabel.setPosition(centerX, copyY).setFontSize(compact ? 12 : 14);
     this.hint
       .setPosition(centerX, centerY + panelHeight * 0.44)
-      .setVisible(!compact || horizontalButtons);
+      .setVisible(this.actions.onCopyReport === undefined && (!compact || horizontalButtons));
   }
 }
 

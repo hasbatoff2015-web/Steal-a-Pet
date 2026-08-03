@@ -1,115 +1,52 @@
 import { describe, expect, it } from 'vitest';
-
 import { ZoneId } from '../src/game/data/zones';
-import { isValidGameSaveData } from '../src/game/systems/SaveSystem';
+import { isValidGameSaveData, migrateV2ToV3 } from '../src/game/systems/SaveSystem';
 
-describe('save v2 validation', () => {
-  it('accepts a valid Stage 3 save without Stage 4 facts', () => {
-    expect(
-      isValidGameSaveData({
-        saveVersion: 2,
-        money: 64,
-        deliveredPetIds: ['dog', 'cat', 'fox'],
-        unlockedZones: [
-          ZoneId.StarterSuburb,
-          ZoneId.Park,
-          ZoneId.CentralHub,
-        ],
-        purchasedUpgradeIds: ['fast-dash'],
-      }),
-    ).toBe(true);
+describe('save v3 validation and v2 migration', () => {
+  it('accepts a strict clean v3 progression save', () => {
+    expect(isValidGameSaveData({
+      saveVersion: 3, balanceRevision: 2, money: 42,
+      deliveredPetIds: ['dog','cat','fox','roam-01','roam-02'],
+      unlockedZones: [ZoneId.StarterSuburb, ZoneId.Park, ZoneId.CentralHub, ZoneId.RichDistrict],
+      purchasedUpgradeIds: ['fast-dash'], grandfatheredZoneIds: [], grandfatheredUpgradeIds: [],
+    })).toBe(true);
   });
-
-  it('rejects Rich District facts with broken dependencies', () => {
-    expect(
-      isValidGameSaveData({
-        saveVersion: 2,
-        money: 0,
-        deliveredPetIds: ['dog', 'cat', 'fox', 'panda'],
-        unlockedZones: [
-          ZoneId.StarterSuburb,
-          ZoneId.Park,
-          ZoneId.CentralHub,
-          ZoneId.RichDistrict,
-        ],
-        purchasedUpgradeIds: [],
-      }),
-    ).toBe(false);
+  it('rejects clean Rich progress without two roaming pets', () => {
+    expect(isValidGameSaveData({
+      saveVersion: 3, balanceRevision: 2, money: 0,
+      deliveredPetIds: ['dog','cat','fox','roam-01'],
+      unlockedZones: [ZoneId.StarterSuburb, ZoneId.Park, ZoneId.CentralHub, ZoneId.RichDistrict],
+      purchasedUpgradeIds: ['fast-dash'], grandfatheredZoneIds: [], grandfatheredUpgradeIds: [],
+    })).toBe(false);
   });
-
-  it('accepts a complete valid Stage 4 save', () => {
-    expect(
-      isValidGameSaveData({
-        saveVersion: 2,
-        money: 310,
-        deliveredPetIds: ['dog', 'cat', 'fox', 'peacock', 'panda'],
-        unlockedZones: [
-          ZoneId.StarterSuburb,
-          ZoneId.Park,
-          ZoneId.CentralHub,
-          ZoneId.RichDistrict,
-        ],
-        purchasedUpgradeIds: ['fast-dash', 'double-dash'],
-      }),
-    ).toBe(true);
+  it('migrates an old complete save without gifting roaming pets', () => {
+    const migrated = migrateV2ToV3({
+      saveVersion: 2, money: 456,
+      deliveredPetIds: ['dog','cat','fox','peacock','panda','vip-a','vip-b','dragon'],
+      unlockedZones: Object.values(ZoneId), purchasedUpgradeIds: ['fast-dash','double-dash'],
+      runStats: { elapsedMs: 540_000, failedThefts: 3, successfulDeliveries: 8, campaignCompleted: true },
+    });
+    expect(migrated.balanceRevision).toBe(2);
+    expect(migrated.deliveredPetIds).not.toContain('roam-01');
+    expect(migrated.grandfatheredZoneIds).toContain(ZoneId.VipEstate);
+    expect(migrated.grandfatheredUpgradeIds).toContain('double-dash');
+    expect(isValidGameSaveData(migrated)).toBe(true);
   });
-
-  it('rejects VIP Estate without all Stage 4 prerequisites', () => {
-    expect(
-      isValidGameSaveData({
-        saveVersion: 2,
-        money: 0,
-        deliveredPetIds: ['dog', 'cat', 'fox', 'peacock'],
-        unlockedZones: Object.values(ZoneId),
-        purchasedUpgradeIds: ['fast-dash', 'double-dash'],
-      }),
-    ).toBe(false);
+  it('rejects corrupt transient or duplicate facts', () => {
+    expect(isValidGameSaveData({
+      saveVersion: 3, balanceRevision: 2, money: 0,
+      deliveredPetIds: ['dog','dog'], unlockedZones: [ZoneId.StarterSuburb],
+      purchasedUpgradeIds: [], grandfatheredZoneIds: [], grandfatheredUpgradeIds: [],
+    })).toBe(false);
   });
-
-  it('rejects Dragon delivery without both VIP pets', () => {
-    expect(
-      isValidGameSaveData({
-        saveVersion: 2,
-        money: 0,
-        deliveredPetIds: [
-          'dog',
-          'cat',
-          'fox',
-          'peacock',
-          'panda',
-          'vip-a',
-          'dragon',
-        ],
-        unlockedZones: Object.values(ZoneId),
-        purchasedUpgradeIds: ['fast-dash', 'double-dash'],
-      }),
-    ).toBe(false);
-  });
-
-  it('accepts a complete final save with optional run stats', () => {
-    expect(
-      isValidGameSaveData({
-        saveVersion: 2,
-        money: 456,
-        deliveredPetIds: [
-          'dog',
-          'cat',
-          'fox',
-          'peacock',
-          'panda',
-          'vip-a',
-          'vip-b',
-          'dragon',
-        ],
-        unlockedZones: Object.values(ZoneId),
-        purchasedUpgradeIds: ['fast-dash', 'double-dash'],
-        runStats: {
-          elapsedMs: 540_000,
-          failedThefts: 3,
-          successfulDeliveries: 8,
-          campaignCompleted: true,
-        },
-      }),
-    ).toBe(true);
+  it('accepts a clean completed 14/14 balance revision 2 save', () => {
+    expect(isValidGameSaveData({
+      saveVersion: 3, balanceRevision: 2, money: 123,
+      deliveredPetIds: ['dog','cat','fox','peacock','panda','vip-a','vip-b','dragon','roam-01','roam-02','roam-03','roam-04','roam-05','roam-06'],
+      unlockedZones: Object.values(ZoneId),
+      purchasedUpgradeIds: ['pet-tracker','calming-lure','fast-dash','runner-shoes','double-dash','quiet-shoes'],
+      grandfatheredZoneIds: [], grandfatheredUpgradeIds: [],
+      runStats: { elapsedMs: 960_000, failedThefts: 2, successfulDeliveries: 14, campaignCompleted: true },
+    })).toBe(true);
   });
 });

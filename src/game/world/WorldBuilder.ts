@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { DEPTH, WORLD } from '../config/gameplay';
 import { getPetDefinition } from '../data/pets';
+import { SHORTCUT_DEFINITIONS, type ShortcutDefinition } from '../data/shortcuts';
 import { PROTOTYPE_LAYOUT, type PrototypeWorldLayout } from '../data/worldLayout';
 import {
   CENTRAL_HUB_GATE_DEFINITION,
@@ -11,6 +12,7 @@ import {
 } from '../data/zones';
 import { DragonCourtyard } from './DragonCourtyard';
 import { UpgradeStation } from './UpgradeStation';
+import { ProgressShortcut } from './ProgressShortcut';
 import { ZoneGate } from './ZoneGate';
 
 export interface WorldBuildResult extends PrototypeWorldLayout {
@@ -21,6 +23,10 @@ export interface WorldBuildResult extends PrototypeWorldLayout {
   vipEstateGate: ZoneGate;
   dragonCourtyard: DragonCourtyard;
   upgradeStation: UpgradeStation;
+  trackingStation: UpgradeStation;
+  stealthStation: UpgradeStation;
+  shortcuts: readonly ProgressShortcut[];
+  roamingPenLabel: Phaser.GameObjects.Text;
   parkNavigationMarkerView: Phaser.GameObjects.Container;
   catNavigationMarkerView: Phaser.GameObjects.Container;
   centralHubMarkerView: Phaser.GameObjects.Container;
@@ -64,13 +70,22 @@ export class WorldBuilder {
 
     this.drawZoneGrounds();
     this.drawRoads();
+    this.drawExpandedWorld();
     this.drawRiverAndBridge();
     const parkGate = this.createParkGate();
     if (parkUnlocked) {
       parkGate.unlock(false);
     }
-    this.drawPlayerBase();
-    const upgradeStation = this.createUpgradeStation();
+    const roamingPenLabel = this.drawPlayerBase();
+    const upgradeStation = this.createUpgradeStation(
+      PROTOTYPE_LAYOUT.upgradeStationPosition, 'MOBILITY', 0x4e8fe8,
+    );
+    const trackingStation = this.createUpgradeStation(
+      PROTOTYPE_LAYOUT.trackingStationPosition, 'TRACKING', 0xffc84f,
+    );
+    const stealthStation = this.createUpgradeStation(
+      PROTOTYPE_LAYOUT.stealthStationPosition, 'STEALTH', 0x9b78d1,
+    );
     this.drawNpcBase();
     this.drawParkEnvironment();
     this.drawParkEncounter();
@@ -97,6 +112,7 @@ export class WorldBuilder {
     dragonCourtyard.setDeliveryState(vipADelivered, vipBDelivered, false);
     this.drawEnvironment();
     this.drawZoneLabels();
+    const shortcuts = this.createProgressShortcuts();
 
     const playerPetSlots = new Map<string, Phaser.Math.Vector2>(
       Object.entries(PROTOTYPE_LAYOUT.playerPetSlots).map(([petId, point]) => [
@@ -202,12 +218,24 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.upgradeStationPosition.x,
         PROTOTYPE_LAYOUT.upgradeStationPosition.y,
       ),
+      trackingStationPosition: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.trackingStationPosition.x,
+        PROTOTYPE_LAYOUT.trackingStationPosition.y,
+      ),
+      stealthStationPosition: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.stealthStationPosition.x,
+        PROTOTYPE_LAYOUT.stealthStationPosition.y,
+      ),
       parkGate,
       centralHubGate,
       richDistrictGate,
       vipEstateGate,
       dragonCourtyard,
       upgradeStation,
+      trackingStation,
+      stealthStation,
+      shortcuts,
+      roamingPenLabel,
       parkNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.parkNavigationMarker,
         'PARK · 25 МОНЕТ',
@@ -220,7 +248,7 @@ export class WorldBuilder {
       ),
       centralHubMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.centralHubMarker,
-        'CENTRAL HUB · 75 МОНЕТ',
+        'CENTRAL HUB · 120 МОНЕТ',
         0x71d8ff,
       ),
       foxNavigationMarkerView: this.createNavigationMarker(
@@ -230,7 +258,7 @@ export class WorldBuilder {
       ),
       richDistrictNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.richDistrictNavigationMarker,
-        'RICH DISTRICT · 200 МОНЕТ',
+        'RICH DISTRICT · 600 МОНЕТ',
         0xffd36f,
       ),
       peacockNavigationMarkerView: this.createNavigationMarker(
@@ -245,7 +273,7 @@ export class WorldBuilder {
       ),
       vipEstateNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.vipEstateNavigationMarker,
-        'VIP ESTATE · 800 МОНЕТ',
+        'VIP ESTATE · 2800 МОНЕТ',
         0xe5b8ff,
       ),
       vipANavigationMarkerView: this.createNavigationMarker(
@@ -265,7 +293,7 @@ export class WorldBuilder {
       ),
       upgradeNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.upgradeNavigationMarker,
-        'БЫСТРЫЙ РЫВОК · 50',
+        'MOBILITY UPGRADES',
         0x76e69b,
       ),
     };
@@ -294,6 +322,90 @@ export class WorldBuilder {
 
     graphics.lineStyle(8, 0xffffff, 0.22);
     graphics.strokeRect(18, 18, WORLD.width - 36, WORLD.height - 36);
+  }
+
+  private drawExpandedWorld(): void {
+    const ground = this.scene.add.graphics().setDepth(DEPTH.ground + 1);
+    // The added space is split into small renderable regions rather than one world-sized texture.
+    for (let x = 0; x < WORLD.width; x += 768) {
+      for (let y = 0; y < WORLD.height; y += 768) {
+        if (x < 3840 && y < 2560) continue;
+        ground.fillStyle((x / 768 + y / 768) % 2 === 0 ? 0x8fd26c : 0x88cb68, 1);
+        ground.fillRect(x, y, Math.min(768, WORLD.width - x), Math.min(768, WORLD.height - y));
+      }
+    }
+    ground.fillStyle(0x9adc72, 0.96); ground.fillRoundedRect(930, 2240, 900, 760, 50);
+    ground.fillStyle(0x75cdd0, 0.5); ground.fillRoundedRect(1660, 2190, 1380, 810, 50);
+    ground.fillStyle(0xb8e38d, 0.96); ground.fillRoundedRect(3040, 1500, 1500, 1500, 50);
+    ground.fillStyle(0xcab2e5, 0.92); ground.fillRoundedRect(2960, 0, 1580, 1510, 50);
+
+    const roads = this.scene.add.graphics().setDepth(DEPTH.ground + 3);
+    roads.lineStyle(116, 0xe8caa0, 1);
+    roads.strokePoints([
+      new Phaser.Math.Vector2(700, 2440), new Phaser.Math.Vector2(1450, 2700),
+      new Phaser.Math.Vector2(2350, 2730), new Phaser.Math.Vector2(3300, 2600),
+      new Phaser.Math.Vector2(4200, 2300), new Phaser.Math.Vector2(4380, 1500),
+      new Phaser.Math.Vector2(3820, 1180), new Phaser.Math.Vector2(3350, 900),
+    ], false, false);
+    roads.lineStyle(58, 0xf8e5c5, 1);
+    roads.strokePoints([
+      new Phaser.Math.Vector2(700, 2440), new Phaser.Math.Vector2(1450, 2700),
+      new Phaser.Math.Vector2(2350, 2730), new Phaser.Math.Vector2(3300, 2600),
+      new Phaser.Math.Vector2(4200, 2300), new Phaser.Math.Vector2(4380, 1500),
+      new Phaser.Math.Vector2(3820, 1180), new Phaser.Math.Vector2(3350, 900),
+    ], false, false);
+
+    for (const territory of [
+      { x: 1030, y: 2320, w: 700, h: 590, label: 'STARTER OUTSKIRTS', color: 0xffe477 },
+      { x: 120, y: 90, w: 1460, h: 690, label: 'PARK NORTH GROVE', color: 0x79d58d },
+      { x: 1740, y: 500, w: 1190, h: 890, label: 'CENTRAL MARKET BACKSTREETS', color: 0xffc66d },
+      { x: 1690, y: 2200, w: 1320, h: 780, label: 'SOUTH CANAL PROMENADE', color: 0x74d6e8 },
+      { x: 3060, y: 1520, w: 1410, h: 1390, label: 'RICH GARDENS', color: 0xf5df82 },
+      { x: 3010, y: 900, w: 1490, h: 610, label: 'VIP APPROACH · OUTER GROUNDS', color: 0xd4b5ed },
+    ] as const) {
+      ground.lineStyle(6, territory.color, 0.66);
+      ground.strokeRoundedRect(territory.x, territory.y, territory.w, territory.h, 34);
+      this.scene.add.text(territory.x + 22, territory.y + 18, territory.label, {
+        fontFamily: 'Arial, sans-serif', fontSize: '17px', fontStyle: 'bold', color: '#17324b',
+        backgroundColor: '#ffffffb8', padding: { x: 8, y: 4 },
+      }).setDepth(DEPTH.groundLabels).setAlpha(0.8);
+    }
+
+    for (const [x, y, color] of [
+      [1250, 2520, 0x4f9e57], [1560, 2850, 0x4f9e57], [1830, 2860, 0x54a36c],
+      [2110, 2390, 0x62b5c1], [2740, 2780, 0x62b5c1], [3270, 2820, 0x4b9e55],
+      [3700, 2550, 0x4b9e55], [4280, 2700, 0x4b9e55], [3200, 1160, 0x7e62a5],
+      [4050, 1280, 0x7e62a5], [4450, 1700, 0x4b9e55],
+    ] as const) {
+      this.scene.add.circle(x, y, 34, color, 0.9).setStrokeStyle(6, 0xffffff, 0.35).setDepth(y);
+    }
+  }
+
+  private createProgressShortcuts(): readonly ProgressShortcut[] {
+    return [
+      this.createProgressShortcut(SHORTCUT_DEFINITIONS[0]!, 1530, 900, false),
+      this.createProgressShortcut(SHORTCUT_DEFINITIONS[1]!, 2460, 2050, true),
+      this.createProgressShortcut(SHORTCUT_DEFINITIONS[2]!, 3860, 1515, true),
+      this.createProgressShortcut(SHORTCUT_DEFINITIONS[3]!, 4140, 885, true),
+    ];
+  }
+
+  private createProgressShortcut(
+    definition: ShortcutDefinition,
+    x: number,
+    y: number,
+    horizontal: boolean,
+  ): ProgressShortcut {
+    const width = horizontal ? 180 : 38;
+    const height = horizontal ? 38 : 180;
+    const barrier = this.addInvisibleObstacle(x - width / 2, y - height / 2, width, height);
+    const bar = this.scene.add.rectangle(x, y, width, height, 0x52616d, 0.94)
+      .setStrokeStyle(5, 0xf4db75, 0.9).setDepth(y + 2);
+    const label = this.scene.add.text(x, y - height / 2 - 18, `${definition.displayName}\nЗАКРЫТО`, {
+      align: 'center', fontFamily: 'Arial, sans-serif', fontSize: '12px', fontStyle: 'bold',
+      color: '#f7f1d0', backgroundColor: '#35424dde', padding: { x: 6, y: 3 },
+    }).setOrigin(0.5, 1).setDepth(y + 3);
+    return new ProgressShortcut(definition, barrier, [bar], label);
   }
 
   private drawRoads(): void {
@@ -439,8 +551,12 @@ export class WorldBuilder {
     );
   }
 
-  private createUpgradeStation(): UpgradeStation {
-    const { x, y } = PROTOTYPE_LAYOUT.upgradeStationPosition;
+  private createUpgradeStation(
+    position: Readonly<{ x: number; y: number }>,
+    branchLabel: string,
+    accentColor: number,
+  ): UpgradeStation {
+    const { x, y } = position;
     const highlight = this.scene.add
       .circle(x, y + 18, 72, 0x8290a0, 0.12)
       .setStrokeStyle(3, 0x8290a0, 0.5)
@@ -454,7 +570,7 @@ export class WorldBuilder {
       .setDepth(y);
     this.obstacles.add(bench);
     this.scene.add
-      .rectangle(x - 34, y - 34, 16, 42, 0x4e8fe8)
+      .rectangle(x - 34, y - 34, 16, 42, accentColor)
       .setStrokeStyle(3, 0xffffff, 0.7)
       .setDepth(y + 1);
     this.scene.add
@@ -463,7 +579,7 @@ export class WorldBuilder {
       .setDepth(y + 1);
 
     const statusLabel = this.scene.add
-      .text(x, y - 82, 'УЛУЧШЕНИЕ\nОТКРОЕТСЯ ПОЗЖЕ', {
+      .text(x, y - 82, `${branchLabel}\nОТКРОЕТСЯ ПОЗЖЕ`, {
         align: 'center',
         fontFamily: 'Arial, sans-serif',
         fontSize: '15px',
@@ -497,7 +613,7 @@ export class WorldBuilder {
       .setStrokeStyle(4, 0xffffff, 0.9)
       .setDepth(y + 3);
     const statusLabel = this.scene.add
-      .text(x + 108, y - 6, 'CENTRAL HUB\n75 МОНЕТ', {
+      .text(x + 108, y - 6, 'CENTRAL HUB\n120 МОНЕТ', {
         align: 'center',
         fontFamily: 'Arial, sans-serif',
         fontSize: '17px',
@@ -523,12 +639,12 @@ export class WorldBuilder {
     );
   }
 
-  private drawPlayerBase(): void {
+  private drawPlayerBase(): Phaser.GameObjects.Text {
     const yard = this.scene.add.graphics().setDepth(DEPTH.ground + 4);
     yard.fillStyle(0xdff4af, 0.92);
-    yard.fillRoundedRect(170, 1840, 720, 610, 42);
+    yard.fillRoundedRect(170, 1840, 950, 1080, 42);
     yard.lineStyle(12, 0x4a9c68, 0.95);
-    yard.strokeRoundedRect(170, 1840, 720, 610, 42);
+    yard.strokeRoundedRect(170, 1840, 950, 1080, 42);
 
     this.addBuilding({
       x: 410,
@@ -557,6 +673,17 @@ export class WorldBuilder {
       })
       .setOrigin(0.5, 0)
       .setDepth(DEPTH.groundLabels);
+
+    const pen = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+    pen.fillStyle(0xaee6a5, 0.78);
+    pen.fillRoundedRect(250, 2430, 360, 300, 28);
+    pen.lineStyle(8, 0x5b9a52, 0.94);
+    pen.strokeRoundedRect(250, 2430, 360, 300, 28);
+    const penLabel = this.scene.add.text(430, 2460, 'СВОБОДНЫЙ ЗАГОН · 0/6', {
+      fontFamily: 'Arial, sans-serif', fontSize: '17px', fontStyle: 'bold',
+      color: '#255d31', backgroundColor: '#f3ffe0dd', padding: { x: 9, y: 5 },
+    }).setOrigin(0.5).setDepth(DEPTH.groundLabels);
+    return penLabel;
   }
 
   private drawNpcBase(): void {
@@ -1052,7 +1179,7 @@ export class WorldBuilder {
       .text(
         x,
         y - 86,
-        'VIP ESTATE\nФИНАЛЬНАЯ ЗОНА · НУЖНЫ 5 ПИТОМЦЕВ И 2 РЫВКА',
+        'VIP ESTATE\nНУЖНЫ 6 БРОДЯЧИХ И ТИХИЕ КРОССОВКИ',
         {
           align: 'center',
           fontFamily: 'Arial, sans-serif',
