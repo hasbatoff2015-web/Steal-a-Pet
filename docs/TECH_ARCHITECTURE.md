@@ -2,36 +2,35 @@
 
 ## Текущее состояние
 
-Репозиторий содержит запускаемую прогрессию пяти питомцев на Phaser + TypeScript:
+Репозиторий содержит законченную playable prototype-кампанию на Phaser + TypeScript:
 
-`Собака → PARK → Кот → CENTRAL HUB → Лиса → Fast Dash → RICH DISTRICT → Павлин/Панда → Double Dash → preview VIP ESTATE`.
+`Собака → PARK → Кот → CENTRAL HUB → Лиса → Fast Dash → RICH DISTRICT → Павлин/Панда → Double Dash → VIP ESTATE → VIP A/VIP B → Дракон → победа`.
 
-Реализованы пять питомцев, encounters с одним или несколькими преследователями, три физических zone gates, два постоянных улучшения, безопасный возврат NPC и восстановление мира через `localStorage` v2. Графика остаётся программной prototype-графикой; финальных ассетов нет.
+Реализованы восемь питомцев, пять физических зон, encounters с одним–тремя преследователями, два постоянных dash upgrades, локальное сохранение v2, статистика прохождения, финальный экран и post-victory free roam. Графика остаётся программной prototype-графикой; production-ассетов нет.
 
 ## Ключевые технологии
 
 | Технология | Версия | Назначение |
 | --- | --- | --- |
-| Phaser | 4.2.1 | runtime, рендеринг, ввод, Arcade Physics |
-| TypeScript | 7.0.2 | строгая типизация |
-| Vite | 8.2.0 | dev-сервер и статическая production-сборка |
+| Phaser | 4.2.1 | runtime, rendering, input, Arcade Physics |
+| TypeScript | 7.0.2 | strict typing |
+| Vite | 8.2.0 | dev server и статическая production build |
 | Vitest | 4.1.10 | targeted tests чистой логики |
 | npm | версия среды | зависимости и scripts |
 
 Vite требует Node.js `^20.19.0` или `>=22.12.0`.
 
-## Сборка
+## Команды
 
-- `npm run dev` — локальный Vite dev-сервер.
+- `npm run dev` — Vite dev server.
 - `npm run typecheck` — `tsc --noEmit`.
-- `npm run test` — targeted Vitest suite.
-- `npm run build` — typecheck и production-сборка Vite.
-- `npm run preview` — локальный запуск собранного `dist/` через Vite preview.
-- `base: './'` обеспечивает относительные пути статической сборки.
-- Серверная логика отсутствует.
-- `node_modules/`, `dist/`, логи и временные файлы исключены через `.gitignore`.
+- `npm run test` — Vitest suite.
+- `npm run build` — typecheck и production build.
+- `npm run preview` — Vite preview собранного `dist/`.
+- `base: './'` сохраняет относительные пути статической сборки.
+- Серверная логика отсутствует; `node_modules/`, `dist/`, coverage, логи и временные файлы исключены из Git.
 
-## Структура исходного кода
+## Структура
 
 ```text
 src/
@@ -65,267 +64,277 @@ src/
       PetEncounter.ts
       PlayerPathHistory.ts
       ProgressionSystem.ts
+      RunStatsSystem.ts
       SaveSystem.ts
       UpgradeSystem.ts
       ZoneGateSystem.ts
     ui/
       Hud.ts
+      VictoryOverlay.ts
     utils/
       createPrototypeTextures.ts
       DeveloperTools.ts
     world/
-      WorldBuilder.ts
+      DragonCourtyard.ts
       UpgradeStation.ts
-      VipEstatePreview.ts
+      WorldBuilder.ts
       ZoneGate.ts
 tests/
   dash-charges.test.ts
   gate-prerequisites.test.ts
   progression.test.ts
+  run-stats.test.ts
   save-validation.test.ts
   upgrade-prerequisites.test.ts
+docs/
+  ASSET_PLAN.md
 ```
 
-## Сцена и композиция
+## Composition root
 
-`WorldScene` — composition root и единственная игровая сцена. Она:
+`WorldScene` остаётся единственной игровой сценой и composition root. Она:
 
-- загружает сохранение до построения мира;
-- создаёт мир, сущности и системы;
-- восстанавливает доставленных питомцев, открытые gates и источники дохода;
-- связывает Arcade Physics colliders и камеру;
-- вызывает системы в общем update;
-- сохраняет ключевые события, периодический снимок денег и состояние перед закрытием страницы.
+- загружает save до построения мира;
+- создаёт economy, upgrades, progression и run stats;
+- строит мир в состоянии, выведенном из сохранённых фактов;
+- создаёт восемь `PetEncounter` и их pursuers;
+- восстанавливает питомцев на базе и income sources;
+- связывает colliders, input, HUD, victory overlay и camera;
+- выполняет единый update без ECS/DI framework;
+- сохраняет ключевые события, периодический money snapshot, stats и beforeunload state.
 
-Механики распределены по отдельным классам; сцена не содержит реализации всей игры.
+Transient active theft, pursuer states и UI overlay не восстанавливаются.
 
-## Данные питомцев и encounters
+## Rename-ready content layer
 
-`PetDefinition` централизованно задаёт:
+`PetDefinition` — единственный источник пользовательской идентичности питомца:
 
-- `id`;
-- отображаемое имя;
-- редкость;
-- доход в секунду;
-- prototype visual key, цвет и зону.
+- stable `id`;
+- `displayName`;
+- rarity;
+- income;
+- отдельный `visualKey`;
+- zone;
+- prototype visual profile.
 
-Текущие definitions:
+Текущие stable ids:
 
-- Собака — `COMMON`, `+1/сек`, STARTER SUBURB;
-- Кот — `UNCOMMON`, `+2/сек`, PARK;
-- Лиса — `RARE`, `+5/сек`, CENTRAL HUB;
-- Павлин — `RARE`, `+10/сек`, RICH DISTRICT;
-- Панда — `RARE`, `+14/сек`, RICH DISTRICT;
-- Дракон — только долгосрочная `LEGENDARY` data-цель без созданной сущности и без придуманного дохода.
+- `dog`, `cat`, `fox`, `peacock`, `panda`;
+- `vip-a`, `vip-b`;
+- `dragon`.
 
-`PetEncounterDefinition` связывает конкретного питомца и массив `pursuers[]`. Каждый pursuer имеет собственные `id`, home, visual key, chase parameters, необязательную задержку активации и data-driven `returnRoutes`. `PetEncounter` является runtime-композицией `Pet + EncounterPursuer[]`, где каждый преследователь содержит `OwnerNpc + ChaseSystem`.
+Gameplay-код не сравнивает `displayName`. Objectives, prompts, toasts, world markers и developer tools берут имя из definition. Prototype motion, scale, shadow и base tint также описаны data profile, поэтому замена display name, visual key и animation не меняет progression, economy, encounter или save.
 
-В мире одновременно находятся несколько питомцев и владельцев, но `CoreLoopSystem` допускает только одну активную кражу. Dog, Cat, Fox и Peacock используют по одному pursuer; Panda — владельца и охранника. После завершения или провала ссылка на active encounter очищается.
+Технический контракт будущих ассетов зафиксирован в `docs/ASSET_PLAN.md`. Следующий визуальный этап должен начать с одного законченного vertical slice.
 
-## Player и input
+## Питомцы и following
 
-`Player` инкапсулирует Arcade body, нормализованное движение, последнее направление, dash, cooldown, trail, world bounds, ориентацию и Y-depth.
-
-Desktop:
-
-- `WASD` / стрелки — движение;
-- `Space` — dash;
-- `E` — contextual interaction;
-- `F2` — debug overlay.
-
-`VirtualControls` без сторонней библиотеки реализует joystick, dash и contextual interaction. В Phaser настроено `input.activePointers: 3`; joystick закрепляется за своим pointer ID, поэтому action-кнопки не сбрасывают его состояние. Mobile dash cooldown отображается на самой кнопке, desktop indicator остаётся только на desktop. Раскладка пересчитывается после resize/orientation change.
-
-`DashChargeController` хранит runtime-состояние зарядов независимо от конкретных upgrades: максимум, текущее число, время следующего восстановления и cooldown. До Double Dash максимум равен одному; после эффекта `MaxDashCharges` — двум. Отдельный press расходует один заряд, активный dash нельзя наложить на предыдущий, восстановление идёт последовательно по 650 мс.
-
-## Питомцы и следование
-
-`Pet` хранит состояния:
+`Pet` имеет состояния:
 
 - `AT_NPC_BASE`;
 - `FOLLOWING_PLAYER`;
 - `AT_PLAYER_BASE`.
 
-Собака, Кот, Лиса, Павлин и Панда используют разные prototype-текстуры, силуэты, размеры и idle motion. На базе они занимают пять отдельных data-defined slots в два ряда и показывают лёгкий периодический income feedback.
+`PlayerPathHistory` хранит ограниченный breadcrumb-маршрут реально пройденного игроком пути. Следующий питомец идёт по этим данным с задержкой, не срезает обычные крупные препятствия и получает safe correction при чрезмерном отставании. Navmesh не используется.
 
-`PlayerPathHistory` хранит ограниченную breadcrumb-историю реально пройденного игроком маршрута только как TypeScript-данные. Активный питомец проходит точки с задержкой, повторяя путь вокруг крупных препятствий. При чрезмерном отставании выполняется коррекция к безопасной trailing-точке. Navmesh не используется.
+Idle prototype motion обновляется с ограниченной частотой и не использует physics. Восемь base pets создают лёгкий income feedback с увеличенным интервалом, чтобы не перегенерировать Phaser Text слишком часто.
 
-## NPC и погоня
+## Encounters и несколько pursuers
 
-Каждый `OwnerNpc` имеет собственные состояния `IDLE`, `CHASING`, `RETURNING`.
+`PetEncounterDefinition` связывает:
 
-`ChaseSystem` получает параметры конкретного pursuer из encounter definition: скорость погони, скорость возврата, дистанцию поимки, head-start и grace period. Все зоны используют общий класс без отдельных AI-систем.
+- стабильный `petId`;
+- required zone;
+- optional required pet ids;
+- pet home;
+- `pursuers[]`.
 
-Panda guard активируется через timestamp внутри `PetEncounter.update`, без `delayedCall`. Завершение, fail, shutdown/reload или очистка active theft сбрасывают pending activation, поэтому поздний alarm не может запустить завершённую погоню. Любой активный pursuer может сообщить поимку; `CoreLoopSystem` обрабатывает событие один раз и останавливает всех участников encounter.
+Каждый `PursuerDefinition` хранит id, home, visual key, chase parameters, optional activation delay/message, return routes и optional `returnResetAfterMs`.
 
-Во время погони NPC использует прямое Arcade Physics-преследование; игровые маршруты спроектированы открытыми. При возврате каждый `OwnerNpc` независимо выбирает ближайшую точку собственного data-defined маршрута и последовательно идёт к home. Если расстояние до текущей цели не уменьшается 1,8 секунды либо возврат превышает 30 секунд, общий fail-safe безопасно восстанавливает конкретного NPC дома в `IDLE`. Encounter снова доступен, когда все pursuers готовы и закончился grace period. Сложный pathfinding отсутствует.
+Состав:
 
-## Core loop
+- Dog, Cat, Fox, Peacock — один pursuer;
+- Panda — owner + delayed guard;
+- VIP A — owner + garden guard через 750 мс;
+- VIP B — owner + intercept guard через 1000 мс;
+- Dragon — boss сразу, Guard A через 700 мс, Guard B через 1400 мс.
 
-`CoreLoopSystem` координирует только текущую активную кражу и общие переходы:
+Delayed activation основана на timestamps внутри `PetEncounter.update`, а не на неотменяемых timers. Fail/delivery сразу сбрасывает `theftActive`, pending activations и activation feedback. Любая поимка обрабатывается централизованно один раз, после чего все pursuers прекращают chase.
 
-- contextual interaction с ближайшим доступным encounter или gate;
-- запуск following и погони;
-- возврат питомца и всех pursuers после поимки;
-- доставка активного питомца в общий `BaseSystem`;
-- регистрация дохода и прогресса;
-- очистка active theft;
-- objective, toast и навигационные markers.
+`CoreLoopSystem` хранит только одну active theft. Поэтому игрок переносит одного питомца, а остальные encounters, gates и station interactions остаются недоступны до завершения или провала.
 
-Класс не содержит отдельного большого сценария для каждого будущего питомца.
+## NPC chase и return
 
-## База
+`OwnerNpc` имеет `IDLE`, `CHASING`, `RETURNING`. `ChaseSystem` применяет параметры конкретного pursuer и не хранит глобальный сценарий.
 
-`BaseSystem` знает геометрию delivery zone и data-defined места доставленных питомцев. Он не управляет экономикой или погоней.
+Возврат:
 
-Доставленные Собака, Кот, Лиса, Павлин и Панда остаются видимыми, используют ограниченное idle movement вокруг пяти slots и не накладываются друг на друга.
+- выбирает ближайшую точку data-defined route;
+- идёт по waypoints к своему home;
+- сохраняет общий stuck fail-safe `1,8 с без прогресса / 30 с максимум`;
+- для дальних VIP/Dragon pursuers применяет `returnResetAfterMs = 6000`;
+- после честной попытки возврата выполняет короткий alpha fade, восстанавливает NPC дома и возвращает `IDLE`;
+- обычные encounters не используют ускоренный reset.
 
-## Экономика
+Timing delayed alarms, return, dash и retry сдвигается на hidden-tab interval, если Phaser clock получил abnormal jump. Physics при скрытии вкладки приостанавливается.
 
-`EconomySystem` не зависит от HUD. Он:
+## Player, dash и input
 
-- хранит деньги;
-- суммирует именованные источники дохода;
-- проверяет `canAfford`;
-- выполняет атомарное `spend`;
-- добавляет источники через `addIncomeSource`.
+`Player` инкапсулирует Arcade body, нормализованное движение, last direction, dash, trail, orientation и Y-depth.
 
-Баланс берётся из pet/gate definitions. HUD только отображает результат.
+`DashChargeController` отделяет runtime charges от upgrades. До Double Dash максимум один; после effect `MaxDashCharges` — два. Заряды расходуются отдельными press и восстанавливаются последовательно по 650 мс. Hidden-tab timing shift не превращается в ошибочный мгновенный recharge.
 
-## Прогрессия
+Desktop: WASD/стрелки, Space, E, F2.
 
-`ProgressionSystem` отдельно хранит открытые зоны, доставленных питомцев, активную цель и этап кампании:
+`VirtualControls` реализует joystick, dash и contextual interaction без сторонней библиотеки. Phaser использует `activePointers: 3`; joystick закреплён за pointer id. Mobile cooldown/charges рисуются на dash button, desktop использует segmented indicator.
 
-- `FIRST_PET`;
-- `EARN_FOR_PARK`;
-- `UNLOCK_PARK`;
-- `STEAL_PARK_PET`;
-- `RETURN_PARK_PET`;
-- `EARN_FOR_CENTRAL_HUB`;
-- `UNLOCK_CENTRAL_HUB`;
-- `STEAL_HUB_PET`;
-- `RETURN_HUB_PET`;
-- `EARN_FOR_DASH_UPGRADE`;
-- `BUY_DASH_UPGRADE`;
-- `EARN_FOR_RICH_DISTRICT`;
-- `UNLOCK_RICH_DISTRICT`;
-- `STEAL_RICH_PETS`;
-- `RETURN_RICH_PET`;
-- `EARN_FOR_DOUBLE_DASH`;
-- `BUY_DOUBLE_DASH`;
-- `RICH_DISTRICT_COMPLETE`.
+## BaseSystem
 
-Objective вычисляется из состояния прогрессии, денег и активной кражи, а не хранится в HUD. Rich progression выводит результат из `deliveredPetIds`, поэтому Peacock → Panda и Panda → Peacock используют одну модель без комбинаторных campaign states.
+`BaseSystem` знает только delivery geometry и `PetId → slot`. Восемь slots заданы в `worldLayout.ts` тремя рядами; Дракон занимает увеличенное центральное место. `CoreLoopSystem` не содержит координат или отдельных условий размещения.
+
+После delivery питомец остаётся видимым, income source регистрируется по stable id и не может задублироваться.
+
+## EconomySystem
+
+Система отделена от HUD и предоставляет:
+
+- cached total income;
+- `canAfford`;
+- atomic `spend`;
+- `addIncomeSource` / `removeIncomeSource`;
+- display money.
+
+Total income пересчитывается только при изменении sources. Abnormal frame delta ограничивается 100 мс, поэтому возврат к скрытой вкладке не выдаёт крупный доход одним frame.
+
+## ProgressionSystem
+
+Прогрессия выводится из delivered pet ids, unlocked zones, purchased upgrades, active pet и money.
+
+Финальные stages:
+
+- `EARN_FOR_VIP_ESTATE`;
+- `UNLOCK_VIP_ESTATE`;
+- `STEAL_VIP_PETS`;
+- `RETURN_VIP_PET`;
+- `DRAGON_AVAILABLE`;
+- `RETURN_DRAGON`;
+- `CAMPAIGN_COMPLETE`.
+
+Свободный порядок VIP A/VIP B не создаёт отдельные branches: счёт и missing target выводятся из `deliveredPetIds`. Dragon availability требует оба id. Campaign complete выводится только из доставки `dragon`.
+
+Objectives формируются data-driven и не используют склонение имён: «Укради питомца: X», «Верни питомца на базу: X».
 
 ## Zone gates
 
-`ZoneGateDefinition` задаёт id, открываемую зону, цену, позицию и радиус взаимодействия.
+`ZoneGateDefinition` задаёт стоимость и data-driven required pets/upgrades/zones. `ZoneGateSystem` общий для PARK, CENTRAL HUB, RICH DISTRICT и VIP ESTATE.
 
-`ZoneGate` отвечает за физический и визуальный объект: закрытый gate имеет статический collider, после открытия collider удаляется и проигрывается короткая реакция.
+VIP gate:
 
-`ZoneGateSystem` ищет ближайший доступный gate, проверяет data-driven `requiredPetIds`, `requiredUpgradeIds` и `requiredZones`, списывает деньги через `EconomySystem`, открывает зону через `ProgressionSystem` и возвращает результат interaction. PARK, CENTRAL HUB и RICH DISTRICT используют одну систему; до выполнения prerequisites interaction не показывается.
+- стоит 800;
+- требует RICH DISTRICT, Dog/Cat/Fox/Peacock/Panda, Fast Dash и Double Dash;
+- до prerequisites физически закрыт и не становится interaction/navigation target;
+- после покупки списывает деньги, уничтожает collider, проигрывает feedback и сохраняет `ZoneId.VipEstate`.
 
-## Улучшения игрока
+## VIP Estate и Dragon Courtyard
 
-`UpgradeDefinition` хранит id, отображаемое имя, цену, prerequisites, effect id и значение. `UpgradeSystem` владеет купленными upgrades, выполняет списание и применяет типизированный effect target, не зашивая покупки в `Player` или HUD.
+`WorldBuilder` создаёт полноценный prototype VIP Estate: главный gate, центральную аллею, два крыла, фонтан/сад, tower court, редкие растения, охранные позиции и центральный двор.
 
-`UpgradeStation` — один физический world object на базе. Он получает последовательное состояние от `UpgradeSystem`: future, Fast Dash offer, Rich District prerequisite, Double Dash offer и complete. `fast-dash` стоит 50 монет и меняет cooldown `900 → 650 мс`; `double-dash` стоит 250 монет и применяет эффект `MaxDashCharges = 2`. При reload оба эффекта повторно применяются в Player, заряды стартуют полными.
+`DragonCourtyard` владеет двумя visual seal indicators и двумя физическими проходами. Состояние вызывается из `isPetDelivered('vip-a'/'vip-b')`; отдельный save flag не существует. После `2/2` оба barriers уничтожаются, visuals открываются и Dragon encounter становится доступным благодаря `requiredPetIds`.
 
-## Карта и UI
+Navigation markers:
 
-- Arcade Physics world: 3840 × 2560 px.
-- `WorldBuilder` создаёт пять prototype-зон, дороги, реку, мост, базы, encounters, окружение, gates, upgrade station, markers и VIP preview.
-- PARK визуально отличается дорожками, деревьями, кустами, прудом, лавочками и павильоном.
-- Закрытый PARK gate физически блокирует мост; восточная prototype-граница предотвращает обход.
-- CENTRAL HUB содержит физический gate за 75 монет, площадь, фонтан, здания, городской дворик и Fox encounter.
-- RICH DISTRICT содержит физический gate за 200, светлый главный бульвар, Estate A с фонтаном/Павлином и Estate B с бассейном/Пандой/охраной.
-- Повторяющиеся Rich decorations используют общие generated textures вместо уникальной Graphics geometry для каждого экземпляра.
-- `VipEstatePreview` остаётся неинтерактивным и после Double Dash меняет подпись на «ФИНАЛЬНАЯ ЗОНА · СКОРО» без active marker.
-- Координаты из `worldLayout.ts` являются prototype layout.
+- VIP gate появляется только после prerequisites;
+- после открытия показывает обе недоставленные VIP-цели;
+- после первой оставляет вторую;
+- после `2/2` ведёт к Дракону;
+- во время active theft и после победы campaign markers скрыты.
 
-`Hud` показывает деньги, суммарный доход, текущую цель, contextual prompt, dash charges/recharge и короткие сообщения. Desktop рисует 1–2 segments; mobile показывает `current/max` на кнопке. Он не изменяет экономику или прогрессию.
+## Victory и RunStats
 
-## Runtime performance
+`RunStatsSystem` — лёгкая pure TypeScript система:
 
-- Phaser loop явно настроен как `target: 60`, `limit: 60`; игровой update не выполняется чаще 60 раз/сек.
-- Movement, dash, following, chase и economy используют `delta`/время Phaser, поэтому ограничение FPS не меняет игровые скорости.
-- `Hud` кэширует реально отображаемые money, objective и interaction prompt и не вызывает `Text.setText`/`setVisible` для одинакового состояния.
-- Desktop segments и mobile dash ring квантизированы на 24 визуальных шага. `Graphics.clear` и redraw выполняются только при смене шага, числа зарядов, максимума или layout.
-- `EconomySystem` кэширует суммарный income и пересчитывает его только при добавлении, замене или удалении источника.
-- `InputController` переиспользует объект `FrameInput`; mobile joystick переиспользует рабочий `Vector2`.
-- Навигационные markers меняют visibility только при реальном переходе состояния; ссылки на Cat/Fox/Peacock/Panda encounters кэшируются.
-- Неактивный `OwnerNpc` не выполняет повторные velocity/shadow/depth updates, пока стоит на месте.
-- HTML snapshot `DeveloperTools` и F2 debug Text обновляются не чаще четырёх раз в секунду и только при изменении текста.
-- F2 показывает current update FPS, rolling FPS и среднее frame time за последнее окно измерения.
+- считает active gameplay elapsed time с clamp 100 мс/frame;
+- не считает hidden tab, victory overlay и post-completion time;
+- считает failed thefts и successful deliveries;
+- отмечает campaign completion для итоговой статистики, но gameplay victory по-прежнему выводится из delivered Dragon.
 
-`WorldBuilder` проверен отдельно. Статический мир состоит из небольшого числа постоянных `Graphics`-слоёв и ограниченного количества простых Game Objects; baseline throughput превышал целевые 60 FPS. Переход на chunked RenderTexture/DynamicTexture не выполнен, потому что он не устраняет найденные CPU/dirty-update bottlenecks и потребовал бы неоправданного rewrite карты. При росте контента этот вопрос нужно перепроверить профилированием на целевых мобильных устройствах.
+`VictoryOverlay` — Phaser UI без отдельного framework. Он создаётся один раз и не обновляет строки каждый frame. Показывает title, число питомцев, время, failures и итоговый income.
 
-## Сохранение
+- Continue закрывает overlay и возвращает free roam.
+- New Game включает confirmation; подтверждение очищает save и безопасно reload-ит игру.
+- Enter/N/Escape и pointer/touch поддерживаются.
+- Полный save не показывает overlay автоматически после reload.
 
-`SaveSystem` использует ключ `steal-a-pet.save.v2`.
+## Сохранение v2
 
-Формат `saveVersion: 2`:
+Ключ: `steal-a-pet.save.v2`.
 
 ```text
-saveVersion
+saveVersion: 2
 money
 deliveredPetIds[]
 unlockedZones[]
 purchasedUpgradeIds[]
+runStats? {
+  elapsedMs
+  failedThefts
+  successfulDeliveries
+  campaignCompleted
+}
 ```
 
-Сохранение выполняется после доставки питомца, открытия gate, периодически для денег и перед закрытием страницы. Запись не происходит каждый кадр.
+`runStats` optional, поэтому корректный Stage 4 save остаётся v2 и получает safe defaults. V1 migration сохранена.
 
-При загрузке восстанавливаются:
+Validation требует:
 
-- деньги;
-- до пяти доставленных питомцев и их места на базе;
-- источники дохода;
-- открытые PARK/CENTRAL HUB/RICH DISTRICT и отсутствие их colliders;
-- Fast Dash и Double Dash, cooldown 650 мс и полные runtime charges;
-- выведенные из сохранённых фактов этап прогрессии и objective.
+- последовательность PARK → HUB → RICH;
+- Fast Dash после Fox;
+- Double Dash после Peacock/Panda + Fast Dash;
+- VIP Estate после RICH, первых пяти pets и обоих upgrades;
+- `vip-a`/`vip-b` только после VIP unlock;
+- `dragon` только после VIP unlock и обоих VIP pets;
+- при наличии run stats `campaignCompleted` согласован с Dragon fact.
 
-Корректный v1 автоматически мигрирует деньги, PARK, Dog/Cat и открытые зоны в v2, добавляя пустые defaults для новых фактов. Этап 4 сохраняет `saveVersion: 2`: Rich zone, Peacock/Panda и Double Dash помещаются в существующие массивы. Validation проверяет зависимости зон, питомцев и upgrades. V2 не сохраняет active theft, dash charges, pursuer states или alarm timer. Отсутствующий, повреждённый, несовместимый или логически противоречивый save безопасно заменяется новой игрой.
+Не сохраняются active theft, pursuer states, pending alarms, dash charges и overlay state.
 
-## Debug и QA
+## Runtime performance
 
-- `F2` — current/rolling FPS, frame time, координаты и состояния runtime; текст обновляется 4 раза/сек.
-- `?dev=1` — dev-only панель для перемещения к пяти encounters, трём gates и upgrade station, добавления 200/250, interaction, dash, быстрой доставки, отдельной поимки owner/guard, return regression positions, v1 migration test и reset save. Snapshot показывает состояния всех pursuers.
-- `?touch=1` — принудительный mobile input для технической проверки.
-- Debug выключен по умолчанию.
+- Phaser loop: `target: 60`, `limit: 60`.
+- Movement, chase и following остаются delta/time based.
+- HUD money/objective/prompt использует dirty strings.
+- Dash bar/ring квантизированы на 24 шага.
+- Income cached; economy delta clamped.
+- Pet idle visuals throttled; idle owners обновляют визуал не чаще 10 раз/сек.
+- Developer DOM и F2 обновляются 4 раза/сек только при изменении текста.
+- Повторяющиеся Rich/VIP decorations используют generated textures.
+- Idle pursuers не выполняют physics path calculations; недоступные encounters не вычисляют activation logic.
+- Victory overlay не выполняет frame-by-frame text generation.
 
-## Реализовано
+Большие ground Graphics пока не переведены в chunk textures: текущий world остаётся ограниченным числом слоёв, а предыдущий профиль не показал отдельного Graphics bottleneck. Перепроверка нужна на реальном мобильном GPU.
 
-- полный core loop Этапа 1;
-- несколько pet definitions и NPC encounters;
-- Собака и Кот с отдельными погонями;
-- Лиса `RARE` и третья вариация погони вокруг объектов CENTRAL HUB;
-- Павлин и Панда `RARE` в свободном порядке внутри RICH DISTRICT;
-- Panda encounter с владельцем, delayed guard alarm и общим завершением кражи;
-- первая прогрессионная арка и contextual objectives;
-- PARK gate за 25 монет;
-- PARK prototype-контент;
-- CENTRAL HUB gate за 75 и городской prototype-контент;
-- RICH DISTRICT gate за 200, два estate и VIP ESTATE preview;
-- несколько источников дохода и списание денег;
-- пять питомцев на базе и суммарный доход `+32/сек`;
-- `UpgradeSystem`, physical station и сохраняемый Fast Dash;
-- сохраняемый Double Dash с двумя последовательными charges;
-- waypoint return routes и общий stuck fail-safe;
-- контекстные markers до gates, недоставленных питомцев и станции улучшений;
-- localStorage save v2, миграция v1 и dev reset;
-- desktop/mobile input, multitouch config и responsive HUD.
-- ограниченный 60 FPS loop и dirty/quantized UI updates;
-- lightweight performance display и production preview script.
-- targeted Vitest tests progression, prerequisites, save validation и dash charges.
+## Debug и tests
 
-## Ещё не реализовано
+`?dev=1` предоставляет data-driven кнопки всех pet targets, gates, VIP prerequisites, +800, три catch actions, quick delivery, seal state и run stats. Dev panel отсутствует в обычном runtime.
 
-- gameplay VIP ESTATE;
-- Дракон и завершение кампании;
-- баланс VIP ESTATE, Дракона и финального этапа;
-- магазин, строительство и сложные улучшения базы;
-- финальные художественные ассеты и audio;
-- SDK Яндекс Игр и реклама;
-- сложный NPC pathfinding;
+Vitest покрывает:
+
+- single/double dash и hidden-tab recharge shift;
+- Rich/VIP gate prerequisites;
+- оба порядка Rich и VIP pets;
+- Dragon availability и campaign completion;
+- Stage 3/4/final save validation;
+- old-save run stats defaults;
+- upgrade prerequisites.
+
+Phaser rendering не unit-тестируется; layout, encounters, overlay и mobile UI проверяются в production preview.
+
+## Не реализовано
+
+- production brainrot identities и sprite sheets;
+- финальный UI art, audio, music;
+- SDK Яндекс Игр, реклама, cloud save;
+- магазин, строительство, inventory, combat, health, stealth;
+- navmesh или сложный pathfinding;
+- новые зоны, pets или upgrades после кампании;
 - lint и полноценные Phaser integration tests;
-- production-оптимизация размера Phaser bundle и повторный GPU-профиль при существенном росте карты.
+- production bundle splitting и финальный профиль на целевых телефонах.

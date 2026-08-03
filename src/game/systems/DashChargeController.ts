@@ -87,4 +87,10 @@ export class DashChargeController {
   public getCooldownMs(): number {
     return this.cooldownMs;
   }
+
+  public shiftTiming(deltaMs: number): void {
+    if (this.nextChargeAt > 0 && deltaMs > 0) {
+      this.nextChargeAt += deltaMs;
+    }
+  }
 }

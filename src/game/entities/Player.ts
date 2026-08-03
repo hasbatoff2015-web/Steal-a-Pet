@@ -103,6 +103,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return this.dashCharges.getMaxCharges();
   }
 
+  public shiftTiming(deltaMs: number): void {
+    if (deltaMs <= 0) {
+      return;
+    }
+    if (this.dashEndsAt > 0) {
+      this.dashEndsAt += deltaMs;
+    }
+    if (this.nextTrailAt > 0) {
+      this.nextTrailAt += deltaMs;
+    }
+    this.dashCharges.shiftTiming(deltaMs);
+  }
+
   public applyCaughtFeedback(ownerPosition: Phaser.Math.Vector2): void {
     const knockback = new Phaser.Math.Vector2(this.x - ownerPosition.x, this.y - ownerPosition.y);
     if (knockback.lengthSq() === 0) {

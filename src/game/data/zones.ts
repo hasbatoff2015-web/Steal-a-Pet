@@ -47,6 +47,17 @@ export const RICH_DISTRICT_GATE_DEFINITION: ZoneGateDefinition = {
   prerequisiteHint: 'НУЖНЫ ЛИСА И БЫСТРЫЙ РЫВОК',
 };
 
+export const VIP_ESTATE_GATE_DEFINITION: ZoneGateDefinition = {
+  id: 'vip-estate-main-gate',
+  zoneId: ZoneId.VipEstate,
+  displayName: 'VIP ESTATE',
+  cost: 800,
+  requiredPetIds: ['dog', 'cat', 'fox', 'peacock', 'panda'],
+  requiredUpgradeIds: ['fast-dash', 'double-dash'],
+  requiredZones: [ZoneId.RichDistrict],
+  prerequisiteHint: 'ФИНАЛЬНАЯ ЗОНА · НУЖНЫ 5 ПИТОМЦЕВ И 2 РЫВКА',
+};
+
 export interface ZoneGatePrerequisiteFacts {
   isPetDelivered(petId: PetId): boolean;
   isUpgradePurchased(upgradeId: UpgradeId): boolean;

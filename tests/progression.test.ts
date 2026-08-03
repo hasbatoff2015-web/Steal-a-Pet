@@ -60,6 +60,48 @@ describe('Rich District progression', () => {
     expect(progression.getStage()).toBe(ProgressionStage.BuyDoubleDash);
     purchasedUpgrades.add('double-dash');
     progression.notifyUpgradePurchased(0);
-    expect(progression.getStage()).toBe(ProgressionStage.RichDistrictComplete);
+    expect(progression.getStage()).toBe(ProgressionStage.EarnForVipEstate);
+  });
+});
+
+function createVipProgression(): ProgressionSystem {
+  const purchasedUpgrades = new Set<UpgradeId>(['fast-dash', 'double-dash']);
+  const progression = new ProgressionSystem(
+    (upgradeId) => purchasedUpgrades.has(upgradeId),
+    {
+      deliveredPetIds: ['dog', 'cat', 'fox', 'peacock', 'panda'],
+      unlockedZones: Object.values(ZoneId),
+    },
+  );
+  progression.updateForMoney(0);
+  return progression;
+}
+
+describe('VIP Estate and final progression', () => {
+  it.each([
+    ['vip-a', 'vip-b'],
+    ['vip-b', 'vip-a'],
+  ] as const)('supports free VIP order %s → %s', (first, second) => {
+    const progression = createVipProgression();
+    progression.startTheft(first, 0);
+    expect(progression.getStage()).toBe(ProgressionStage.ReturnVipPet);
+    progression.deliverPet(first, 0);
+    expect(progression.getMissingVipPetId()).toBe(second);
+    expect(progression.getStage()).toBe(ProgressionStage.StealVipPets);
+    progression.deliverPet(second, 0);
+    expect(progression.getVipPetDeliveryCount()).toBe(2);
+    expect(progression.getStage()).toBe(ProgressionStage.DragonAvailable);
+  });
+
+  it('does not complete the campaign until Dragon delivery', () => {
+    const progression = createVipProgression();
+    progression.deliverPet('vip-a', 0);
+    progression.deliverPet('vip-b', 0);
+    expect(progression.isCampaignComplete()).toBe(false);
+    progression.startTheft('dragon', 0);
+    expect(progression.getStage()).toBe(ProgressionStage.ReturnDragon);
+    progression.deliverPet('dragon', 0);
+    expect(progression.isCampaignComplete()).toBe(true);
+    expect(progression.getStage()).toBe(ProgressionStage.CampaignComplete);
   });
 });

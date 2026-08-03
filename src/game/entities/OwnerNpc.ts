@@ -7,6 +7,8 @@ const RETURN_HOME_REACHED_DISTANCE = 12;
 const RETURN_STUCK_TIMEOUT_MS = 1800;
 const RETURN_MAX_DURATION_MS = 30000;
 const RETURN_PROGRESS_DISTANCE = 6;
+const RETURN_RESET_FADE_MS = 220;
+const IDLE_VISUAL_INTERVAL_MS = 100;
 
 export enum OwnerState {
   Idle = 'IDLE',
@@ -24,6 +26,8 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
   private returningSince = 0;
   private lastReturnProgressAt = 0;
   private lastReturnDistance = Number.POSITIVE_INFINITY;
+  private visualResetStartedAt = 0;
+  private nextIdleVisualAt = 0;
 
   public constructor(
     scene: Phaser.Scene,
@@ -31,6 +35,7 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     visualKey: string,
     private readonly chaseParameters: ChaseParameters,
     returnRoutes: readonly (readonly WorldPoint[])[] = [],
+    private readonly returnResetAfterMs?: number,
   ) {
     super(scene, home.x, home.y, visualKey);
 
@@ -56,8 +61,22 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     return this.ownerState;
   }
 
+  public shiftTiming(deltaMs: number): void {
+    if (deltaMs <= 0 || this.ownerState !== OwnerState.Returning) {
+      return;
+    }
+    this.returningSince += deltaMs;
+    this.lastReturnProgressAt += deltaMs;
+    if (this.visualResetStartedAt > 0) {
+      this.visualResetStartedAt += deltaMs;
+    }
+  }
+
   public startChase(): void {
     this.ownerState = OwnerState.Chasing;
+    this.visualResetStartedAt = 0;
+    this.setAlpha(1);
+    this.shadow.setAlpha(0.28);
     this.setScale(1);
     this.setTint(0xffd1cc);
   }
@@ -79,10 +98,15 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     this.returningSince = this.scene.time.now;
     this.lastReturnProgressAt = this.returningSince;
     this.lastReturnDistance = Number.POSITIVE_INFINITY;
+    this.visualResetStartedAt = 0;
   }
 
   public updateNpc(player: Phaser.GameObjects.GameObject & Phaser.Types.Math.Vector2Like): void {
     if (this.ownerState === OwnerState.Idle) {
+      if (this.scene.time.now < this.nextIdleVisualAt) {
+        return;
+      }
+      this.nextIdleVisualAt = this.scene.time.now + IDLE_VISUAL_INTERVAL_MS;
       this.setScale(1 + Math.sin(this.scene.time.now / 350) * 0.025);
       return;
     }
@@ -104,6 +128,12 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
   }
 
   private updateReturn(): void {
+    const now = this.scene.time.now;
+    if (this.visualResetStartedAt > 0) {
+      this.updateVisualReturnReset(now);
+      return;
+    }
+
     const target = this.activeReturnRoute[this.returnWaypointIndex] ?? this.home;
     const distance = Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y);
     const reachedDistance =
@@ -123,17 +153,25 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    const now = this.scene.time.now;
     if (distance <= this.lastReturnDistance - RETURN_PROGRESS_DISTANCE) {
       this.lastReturnDistance = distance;
       this.lastReturnProgressAt = now;
     }
 
     if (
+      (this.returnResetAfterMs !== undefined &&
+        now - this.returningSince >= this.returnResetAfterMs) ||
       now - this.returningSince >= RETURN_MAX_DURATION_MS ||
       now - this.lastReturnProgressAt >= RETURN_STUCK_TIMEOUT_MS
     ) {
-      this.settleAtHome();
+      if (
+        this.returnResetAfterMs !== undefined &&
+        now - this.returningSince >= this.returnResetAfterMs
+      ) {
+        this.beginVisualReturnReset(now);
+      } else {
+        this.settleAtHome();
+      }
       return;
     }
 
@@ -143,6 +181,24 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
       target.y,
       this.chaseParameters.returnSpeed,
     );
+  }
+
+  private beginVisualReturnReset(now: number): void {
+    this.visualResetStartedAt = now;
+    this.setVelocity(0, 0);
+  }
+
+  private updateVisualReturnReset(now: number): void {
+    const progress = Phaser.Math.Clamp(
+      (now - this.visualResetStartedAt) / RETURN_RESET_FADE_MS,
+      0,
+      1,
+    );
+    this.setAlpha(1 - progress);
+    this.shadow.setAlpha(0.28 * (1 - progress));
+    if (progress >= 1) {
+      this.settleAtHome();
+    }
   }
 
   private findClosestReturnRouteStart(): {
@@ -183,5 +239,8 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     this.activeReturnRoute = [];
     this.returnWaypointIndex = 0;
     this.lastReturnDistance = Number.POSITIVE_INFINITY;
+    this.visualResetStartedAt = 0;
+    this.setAlpha(1);
+    this.shadow.setAlpha(0.28);
   }
 }

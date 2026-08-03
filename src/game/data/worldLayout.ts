@@ -17,6 +17,12 @@ export interface PrototypeWorldLayout {
   richDistrictNavigationMarker: Phaser.Math.Vector2;
   peacockNavigationMarker: Phaser.Math.Vector2;
   pandaNavigationMarker: Phaser.Math.Vector2;
+  vipEstateGatePosition: Phaser.Math.Vector2;
+  vipEstateGateInteractionPoint: Phaser.Math.Vector2;
+  vipEstateNavigationMarker: Phaser.Math.Vector2;
+  vipANavigationMarker: Phaser.Math.Vector2;
+  vipBNavigationMarker: Phaser.Math.Vector2;
+  dragonNavigationMarker: Phaser.Math.Vector2;
   upgradeNavigationMarker: Phaser.Math.Vector2;
   upgradeStationPosition: Phaser.Math.Vector2;
 }
@@ -25,11 +31,14 @@ export const PROTOTYPE_LAYOUT = {
   playerSpawn: { x: 700, y: 2310 },
   playerDeliveryZone: { x: 545, y: 2120, width: 245, height: 210 },
   playerPetSlots: {
-    dog: { x: 590, y: 2185 },
-    cat: { x: 680, y: 2185 },
-    fox: { x: 760, y: 2185 },
-    peacock: { x: 625, y: 2260 },
-    panda: { x: 725, y: 2260 },
+    dog: { x: 580, y: 2170 },
+    cat: { x: 655, y: 2170 },
+    fox: { x: 730, y: 2170 },
+    peacock: { x: 575, y: 2235 },
+    panda: { x: 650, y: 2235 },
+    'vip-a': { x: 735, y: 2235 },
+    'vip-b': { x: 585, y: 2295 },
+    dragon: { x: 700, y: 2290 },
   },
   parkGatePosition: { x: 900, y: 1080 },
   parkGateInteractionPoint: { x: 900, y: 1165 },
@@ -44,6 +53,12 @@ export const PROTOTYPE_LAYOUT = {
   richDistrictNavigationMarker: { x: 2525, y: 1460 },
   peacockNavigationMarker: { x: 3120, y: 1210 },
   pandaNavigationMarker: { x: 3550, y: 2160 },
+  vipEstateGatePosition: { x: 3350, y: 847 },
+  vipEstateGateInteractionPoint: { x: 3350, y: 930 },
+  vipEstateNavigationMarker: { x: 3350, y: 970 },
+  vipANavigationMarker: { x: 2880, y: 610 },
+  vipBNavigationMarker: { x: 3740, y: 590 },
+  dragonNavigationMarker: { x: 3340, y: 430 },
   upgradeNavigationMarker: { x: 815, y: 1970 },
   upgradeStationPosition: { x: 815, y: 1970 },
 } as const;

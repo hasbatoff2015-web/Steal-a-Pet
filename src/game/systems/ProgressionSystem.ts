@@ -8,10 +8,18 @@ import {
   CENTRAL_HUB_GATE_DEFINITION,
   PARK_GATE_DEFINITION,
   RICH_DISTRICT_GATE_DEFINITION,
+  VIP_ESTATE_GATE_DEFINITION,
   ZoneId,
 } from '../data/zones';
 
-const RICH_PET_IDS = ['peacock', 'panda'] as const satisfies readonly PetId[];
+export const RICH_PET_IDS = [
+  'peacock',
+  'panda',
+] as const satisfies readonly PetId[];
+export const VIP_PET_IDS = [
+  'vip-a',
+  'vip-b',
+] as const satisfies readonly PetId[];
 
 export enum ProgressionStage {
   FirstPet = 'FIRST_PET',
@@ -31,7 +39,13 @@ export enum ProgressionStage {
   ReturnRichPet = 'RETURN_RICH_PET',
   EarnForDoubleDash = 'EARN_FOR_DOUBLE_DASH',
   BuyDoubleDash = 'BUY_DOUBLE_DASH',
-  RichDistrictComplete = 'RICH_DISTRICT_COMPLETE',
+  EarnForVipEstate = 'EARN_FOR_VIP_ESTATE',
+  UnlockVipEstate = 'UNLOCK_VIP_ESTATE',
+  StealVipPets = 'STEAL_VIP_PETS',
+  ReturnVipPet = 'RETURN_VIP_PET',
+  DragonAvailable = 'DRAGON_AVAILABLE',
+  ReturnDragon = 'RETURN_DRAGON',
+  CampaignComplete = 'CAMPAIGN_COMPLETE',
 }
 
 export interface ProgressionSnapshot {
@@ -102,43 +116,54 @@ export class ProgressionSystem {
     return this.unlockedZones.has(zoneId);
   }
 
+  public isCampaignComplete(): boolean {
+    return this.deliveredPetIds.has('dragon');
+  }
+
   public getStage(): ProgressionStage {
     return this.campaignStage;
   }
 
   public getRichPetDeliveryCount(): number {
-    return RICH_PET_IDS.reduce(
-      (count, petId) => count + Number(this.deliveredPetIds.has(petId)),
-      0,
+    return this.countDelivered(RICH_PET_IDS);
+  }
+
+  public getVipPetDeliveryCount(): number {
+    return this.countDelivered(VIP_PET_IDS);
+  }
+
+  public getMissingVipPetId(): (typeof VIP_PET_IDS)[number] | null {
+    return (
+      VIP_PET_IDS.find((petId) => !this.deliveredPetIds.has(petId)) ?? null
     );
   }
 
   public getObjective(money: number): string {
     switch (this.campaignStage) {
       case ProgressionStage.FirstPet:
-        return 'Укради Собаку';
+        return this.stealObjective('dog');
       case ProgressionStage.EarnForPark:
-        return `Накопи ${PARK_GATE_DEFINITION.cost} монет для PARK (${Math.floor(money)}/${PARK_GATE_DEFINITION.cost})`;
+        return this.earnObjective(PARK_GATE_DEFINITION, money);
       case ProgressionStage.UnlockPark:
         return 'Открой PARK у моста';
       case ProgressionStage.StealParkPet:
-        return 'Исследуй PARK и укради Кота';
+        return `Исследуй PARK · ${this.stealObjective('cat')}`;
       case ProgressionStage.ReturnParkPet:
-        return 'Убегай! Верни Кота на базу';
+        return this.returnObjective('cat');
       case ProgressionStage.EarnForCentralHub:
-        return `Накопи ${CENTRAL_HUB_GATE_DEFINITION.cost} монет для CENTRAL HUB (${Math.floor(money)}/${CENTRAL_HUB_GATE_DEFINITION.cost})`;
+        return this.earnObjective(CENTRAL_HUB_GATE_DEFINITION, money);
       case ProgressionStage.UnlockCentralHub:
         return 'Открой CENTRAL HUB';
       case ProgressionStage.StealHubPet:
-        return 'Исследуй CENTRAL HUB и укради Лису';
+        return `Исследуй CENTRAL HUB · ${this.stealObjective('fox')}`;
       case ProgressionStage.ReturnHubPet:
-        return 'Убегай! Верни Лису на базу';
+        return this.returnObjective('fox');
       case ProgressionStage.EarnForDashUpgrade:
         return `Накопи ${FAST_DASH_UPGRADE.cost} монет на «Быстрый рывок» (${Math.floor(money)}/${FAST_DASH_UPGRADE.cost})`;
       case ProgressionStage.BuyDashUpgrade:
         return 'Купи улучшение «Быстрый рывок» на базе';
       case ProgressionStage.EarnForRichDistrict:
-        return `Накопи ${RICH_DISTRICT_GATE_DEFINITION.cost} монет для RICH DISTRICT (${Math.floor(money)}/${RICH_DISTRICT_GATE_DEFINITION.cost})`;
+        return this.earnObjective(RICH_DISTRICT_GATE_DEFINITION, money);
       case ProgressionStage.UnlockRichDistrict:
         return 'Открой RICH DISTRICT';
       case ProgressionStage.StealRichPets: {
@@ -154,15 +179,33 @@ export class ProgressionSystem {
           : `Укради второго питомца: ${getPetDefinition(missingPetId).displayName}`;
       }
       case ProgressionStage.ReturnRichPet:
-        return this.activePetId === null
-          ? 'Убегай! Верни питомца на базу'
-          : `Убегай! Верни ${getPetDefinition(this.activePetId).displayName} на базу`;
+        return this.returnObjective(this.activePetId);
       case ProgressionStage.EarnForDoubleDash:
         return `Накопи ${DOUBLE_DASH_UPGRADE.cost} монет на «Двойной рывок» (${Math.floor(money)}/${DOUBLE_DASH_UPGRADE.cost})`;
       case ProgressionStage.BuyDoubleDash:
         return 'Купи улучшение «Двойной рывок» на базе';
-      case ProgressionStage.RichDistrictComplete:
-        return 'VIP ESTATE — финальная зона · СКОРО';
+      case ProgressionStage.EarnForVipEstate:
+        return this.earnObjective(VIP_ESTATE_GATE_DEFINITION, money);
+      case ProgressionStage.UnlockVipEstate:
+        return 'Открой VIP ESTATE';
+      case ProgressionStage.StealVipPets: {
+        const deliveredCount = this.getVipPetDeliveryCount();
+        if (deliveredCount === 0) {
+          return 'Укради VIP-питомцев: 0/2';
+        }
+        const missingPetId = this.getMissingVipPetId();
+        return missingPetId === null
+          ? 'Укради VIP-питомцев: 2/2'
+          : `Укради второго VIP-питомца: ${getPetDefinition(missingPetId).displayName}`;
+      }
+      case ProgressionStage.ReturnVipPet:
+        return this.returnObjective(this.activePetId);
+      case ProgressionStage.DragonAvailable:
+        return `Защита снята · ${this.stealObjective('dragon')}`;
+      case ProgressionStage.ReturnDragon:
+        return `ФИНАЛ · ${this.returnObjective('dragon')}`;
+      case ProgressionStage.CampaignComplete:
+        return 'Кампания завершена · исследуй мир';
     }
   }
 
@@ -175,6 +218,25 @@ export class ProgressionSystem {
   }
 
   private deriveStage(money: number): ProgressionStage {
+    if (this.isUpgradePurchased(DOUBLE_DASH_UPGRADE.id)) {
+      if (!this.unlockedZones.has(ZoneId.VipEstate)) {
+        return money >= VIP_ESTATE_GATE_DEFINITION.cost
+          ? ProgressionStage.UnlockVipEstate
+          : ProgressionStage.EarnForVipEstate;
+      }
+      if (this.activePetId === 'vip-a' || this.activePetId === 'vip-b') {
+        return ProgressionStage.ReturnVipPet;
+      }
+      if (this.activePetId === 'dragon') {
+        return ProgressionStage.ReturnDragon;
+      }
+      if (this.getVipPetDeliveryCount() < VIP_PET_IDS.length) {
+        return ProgressionStage.StealVipPets;
+      }
+      return this.deliveredPetIds.has('dragon')
+        ? ProgressionStage.CampaignComplete
+        : ProgressionStage.DragonAvailable;
+    }
     if (this.isUpgradePurchased(FAST_DASH_UPGRADE.id)) {
       if (!this.unlockedZones.has(ZoneId.RichDistrict)) {
         return money >= RICH_DISTRICT_GATE_DEFINITION.cost
@@ -187,12 +249,9 @@ export class ProgressionSystem {
       if (this.getRichPetDeliveryCount() < RICH_PET_IDS.length) {
         return ProgressionStage.StealRichPets;
       }
-      if (!this.isUpgradePurchased(DOUBLE_DASH_UPGRADE.id)) {
-        return money >= DOUBLE_DASH_UPGRADE.cost
-          ? ProgressionStage.BuyDoubleDash
-          : ProgressionStage.EarnForDoubleDash;
-      }
-      return ProgressionStage.RichDistrictComplete;
+      return money >= DOUBLE_DASH_UPGRADE.cost
+        ? ProgressionStage.BuyDoubleDash
+        : ProgressionStage.EarnForDoubleDash;
     }
     if (this.deliveredPetIds.has('fox')) {
       return money >= FAST_DASH_UPGRADE.cost
@@ -222,5 +281,29 @@ export class ProgressionSystem {
         : ProgressionStage.EarnForPark;
     }
     return ProgressionStage.StealParkPet;
+  }
+
+  private countDelivered(petIds: readonly PetId[]): number {
+    return petIds.reduce(
+      (count, petId) => count + Number(this.deliveredPetIds.has(petId)),
+      0,
+    );
+  }
+
+  private stealObjective(petId: PetId): string {
+    return `Укради питомца: ${getPetDefinition(petId).displayName}`;
+  }
+
+  private returnObjective(petId: PetId | null): string {
+    return petId === null
+      ? 'Верни питомца на базу'
+      : `Верни питомца на базу: ${getPetDefinition(petId).displayName}`;
+  }
+
+  private earnObjective(
+    definition: { readonly displayName: string; readonly cost: number },
+    money: number,
+  ): string {
+    return `Накопи ${definition.cost} монет для ${definition.displayName} (${Math.floor(money)}/${definition.cost})`;
   }
 }

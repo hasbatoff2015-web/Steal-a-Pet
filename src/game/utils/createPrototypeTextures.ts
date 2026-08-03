@@ -270,4 +270,108 @@ export function createPrototypeTextures(scene: Phaser.Scene): void {
       graphics.fillCircle(x, 17, 6);
     }
   });
+
+  generate(scene, 'vip-capybara', 90, 66, (graphics) => {
+    graphics.fillStyle(0x9a7023, 0.25);
+    graphics.fillEllipse(46, 55, 74, 18);
+    graphics.fillStyle(0xe7b94c);
+    graphics.fillEllipse(46, 36, 70, 43);
+    graphics.fillCircle(72, 31, 19);
+    graphics.fillStyle(0xf7dd87);
+    graphics.fillEllipse(77, 38, 22, 15);
+    graphics.fillStyle(0x4a3415);
+    graphics.fillCircle(75, 27, 3);
+    graphics.fillCircle(85, 37, 3);
+    graphics.fillStyle(0xffdd5e);
+    graphics.fillTriangle(58, 12, 64, 1, 69, 13);
+    graphics.fillTriangle(68, 12, 74, 0, 79, 14);
+    graphics.fillTriangle(78, 13, 83, 3, 87, 17);
+    graphics.fillStyle(0xa87820);
+    graphics.fillRoundedRect(21, 51, 13, 12, 5);
+    graphics.fillRoundedRect(53, 51, 13, 12, 5);
+  });
+
+  generate(scene, 'vip-owl', 86, 76, (graphics) => {
+    graphics.fillStyle(0x5d3f86, 0.25);
+    graphics.fillEllipse(43, 65, 66, 16);
+    graphics.fillStyle(0x8b69bd);
+    graphics.fillEllipse(43, 41, 55, 52);
+    graphics.fillTriangle(18, 44, 1, 59, 26, 58);
+    graphics.fillTriangle(68, 44, 85, 59, 60, 58);
+    graphics.fillStyle(0xf4ecff);
+    graphics.fillCircle(32, 35, 15);
+    graphics.fillCircle(54, 35, 15);
+    graphics.fillStyle(0xffdb57);
+    graphics.fillCircle(32, 35, 7);
+    graphics.fillCircle(54, 35, 7);
+    graphics.fillStyle(0x241a33);
+    graphics.fillCircle(32, 35, 3);
+    graphics.fillCircle(54, 35, 3);
+    graphics.fillStyle(0xe7b73f);
+    graphics.fillTriangle(43, 42, 36, 49, 50, 49);
+    graphics.fillTriangle(25, 13, 32, 1, 38, 14);
+    graphics.fillTriangle(38, 13, 43, 0, 48, 14);
+    graphics.fillTriangle(49, 14, 56, 2, 62, 16);
+  });
+
+  generate(scene, 'dragon-prototype', 126, 96, (graphics) => {
+    graphics.fillStyle(0x34204e, 0.3);
+    graphics.fillEllipse(64, 84, 105, 20);
+    graphics.fillStyle(0x7040b3, 0.78);
+    graphics.fillTriangle(42, 45, 3, 15, 20, 65);
+    graphics.fillTriangle(84, 45, 123, 15, 106, 65);
+    graphics.fillStyle(0x9b5be0);
+    graphics.fillEllipse(63, 52, 70, 58);
+    graphics.fillCircle(65, 28, 27);
+    graphics.fillStyle(0xffd75e);
+    graphics.fillTriangle(48, 15, 50, 0, 59, 17);
+    graphics.fillTriangle(72, 16, 82, 1, 82, 22);
+    graphics.fillStyle(0xf1d8ff);
+    graphics.fillCircle(56, 27, 7);
+    graphics.fillCircle(75, 27, 7);
+    graphics.fillStyle(0x28163c);
+    graphics.fillCircle(57, 27, 3);
+    graphics.fillCircle(76, 27, 3);
+    graphics.fillStyle(0xffd75e);
+    graphics.fillTriangle(65, 38, 58, 45, 72, 45);
+    graphics.fillStyle(0x7040b3);
+    graphics.fillTriangle(91, 59, 125, 78, 88, 75);
+    graphics.lineStyle(5, 0xffd75e, 0.9);
+    graphics.strokeCircle(63, 51, 41);
+  });
+
+  for (const [key, bodyColor, accentColor] of [
+    ['vip-owner-gold', 0xc79a2f, 0xffefb0],
+    ['vip-guard-gold', 0x3e354d, 0xe7b94c],
+    ['vip-owner-purple', 0x764da5, 0xf0deff],
+    ['vip-guard-purple', 0x2f2944, 0xb88de5],
+    ['vip-boss', 0x542b72, 0xffd75e],
+  ] as const) {
+    generate(scene, key, 52, 58, (graphics) => {
+      graphics.fillStyle(bodyColor);
+      graphics.fillCircle(26, 24, 19);
+      graphics.fillStyle(accentColor);
+      graphics.fillCircle(20, 19, 5);
+      graphics.fillStyle(0xffffff);
+      graphics.fillCircle(32, 18, 5);
+      graphics.fillStyle(0x21172b);
+      graphics.fillCircle(33, 18, 2);
+      graphics.fillStyle(accentColor);
+      graphics.fillRoundedRect(14, 39, 24, 13, 6);
+      graphics.fillStyle(0x2b2136);
+      graphics.fillRect(10, 4, 32, 7);
+    });
+  }
+
+  generate(scene, 'vip-rare-plant', 62, 74, (graphics) => {
+    graphics.fillStyle(0x4f3d70);
+    graphics.fillRoundedRect(15, 54, 32, 18, 5);
+    graphics.fillStyle(0x3e9b68);
+    graphics.fillEllipse(21, 40, 22, 36);
+    graphics.fillEllipse(41, 36, 22, 42);
+    graphics.fillStyle(0xd985e9);
+    graphics.fillCircle(20, 23, 9);
+    graphics.fillStyle(0xffd75e);
+    graphics.fillCircle(42, 17, 10);
+  });
 }

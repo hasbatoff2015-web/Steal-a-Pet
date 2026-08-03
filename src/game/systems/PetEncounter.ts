@@ -24,7 +24,7 @@ export class PetEncounter {
 
   private theftActive = false;
   private theftStartedAt = 0;
-  private justActivatedPursuerId: string | null = null;
+  private justActivatedPursuer: PursuerDefinition | null = null;
 
   public constructor(
     public readonly definition: PetEncounterDefinition,
@@ -57,7 +57,7 @@ export class PetEncounter {
           pursuer.activated = true;
           pursuer.chase.start();
           if ((pursuer.definition.activationDelayMs ?? 0) > 0) {
-            this.justActivatedPursuerId = pursuer.definition.id;
+            this.justActivatedPursuer = pursuer.definition;
           }
         }
       }
@@ -72,7 +72,10 @@ export class PetEncounter {
     return (
       this.pet.getState() === PetState.AtNpcBase &&
       !progression.isPetDelivered(this.pet.petId) &&
-      progression.isZoneUnlocked(this.definition.requiredZone)
+      progression.isZoneUnlocked(this.definition.requiredZone) &&
+      (this.definition.requiredPetIds?.every((petId) =>
+        progression.isPetDelivered(petId),
+      ) ?? true)
     );
   }
 
@@ -90,7 +93,7 @@ export class PetEncounter {
   public startTheft(time: number): void {
     this.theftActive = true;
     this.theftStartedAt = time;
-    this.justActivatedPursuerId = null;
+    this.justActivatedPursuer = null;
     this.pet.startFollowing();
     for (const pursuer of this.pursuers) {
       pursuer.activated = (pursuer.definition.activationDelayMs ?? 0) <= 0;
@@ -118,10 +121,10 @@ export class PetEncounter {
     );
   }
 
-  public consumeActivatedPursuerId(): string | null {
-    const pursuerId = this.justActivatedPursuerId;
-    this.justActivatedPursuerId = null;
-    return pursuerId;
+  public consumeActivatedPursuer(): PursuerDefinition | null {
+    const pursuer = this.justActivatedPursuer;
+    this.justActivatedPursuer = null;
+    return pursuer;
   }
 
   public getTheftHeadStartMs(): number {
@@ -134,9 +137,21 @@ export class PetEncounter {
     );
   }
 
+  public shiftTiming(deltaMs: number): void {
+    if (deltaMs <= 0) {
+      return;
+    }
+    if (this.theftActive) {
+      this.theftStartedAt += deltaMs;
+    }
+    for (const pursuer of this.pursuers) {
+      pursuer.owner.shiftTiming(deltaMs);
+    }
+  }
+
   private stopAllPursuers(): void {
     this.theftActive = false;
-    this.justActivatedPursuerId = null;
+    this.justActivatedPursuer = null;
     for (const pursuer of this.pursuers) {
       pursuer.activated = false;
       pursuer.chase.stop();

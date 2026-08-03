@@ -1,14 +1,16 @@
 import Phaser from 'phaser';
 
 import { DEPTH, WORLD } from '../config/gameplay';
+import { getPetDefinition } from '../data/pets';
 import { PROTOTYPE_LAYOUT, type PrototypeWorldLayout } from '../data/worldLayout';
 import {
   CENTRAL_HUB_GATE_DEFINITION,
   PARK_GATE_DEFINITION,
   RICH_DISTRICT_GATE_DEFINITION,
+  VIP_ESTATE_GATE_DEFINITION,
 } from '../data/zones';
+import { DragonCourtyard } from './DragonCourtyard';
 import { UpgradeStation } from './UpgradeStation';
-import { VipEstatePreview } from './VipEstatePreview';
 import { ZoneGate } from './ZoneGate';
 
 export interface WorldBuildResult extends PrototypeWorldLayout {
@@ -16,8 +18,9 @@ export interface WorldBuildResult extends PrototypeWorldLayout {
   parkGate: ZoneGate;
   centralHubGate: ZoneGate;
   richDistrictGate: ZoneGate;
+  vipEstateGate: ZoneGate;
+  dragonCourtyard: DragonCourtyard;
   upgradeStation: UpgradeStation;
-  vipEstatePreview: VipEstatePreview;
   parkNavigationMarkerView: Phaser.GameObjects.Container;
   catNavigationMarkerView: Phaser.GameObjects.Container;
   centralHubMarkerView: Phaser.GameObjects.Container;
@@ -25,6 +28,10 @@ export interface WorldBuildResult extends PrototypeWorldLayout {
   richDistrictNavigationMarkerView: Phaser.GameObjects.Container;
   peacockNavigationMarkerView: Phaser.GameObjects.Container;
   pandaNavigationMarkerView: Phaser.GameObjects.Container;
+  vipEstateNavigationMarkerView: Phaser.GameObjects.Container;
+  vipANavigationMarkerView: Phaser.GameObjects.Container;
+  vipBNavigationMarkerView: Phaser.GameObjects.Container;
+  dragonNavigationMarkerView: Phaser.GameObjects.Container;
   upgradeNavigationMarkerView: Phaser.GameObjects.Container;
 }
 
@@ -49,6 +56,9 @@ export class WorldBuilder {
     parkUnlocked: boolean,
     centralHubUnlocked: boolean,
     richDistrictUnlocked: boolean,
+    vipEstateUnlocked: boolean,
+    vipADelivered: boolean,
+    vipBDelivered: boolean,
   ): WorldBuildResult {
     this.scene.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
 
@@ -78,7 +88,13 @@ export class WorldBuilder {
     }
     this.drawRichDistrictEnvironment();
     this.drawRichDistrictEncounters();
-    const vipEstatePreview = this.drawVipEstatePreview();
+    this.drawVipEstateEnvironment();
+    const vipEstateGate = this.createVipEstateGate();
+    if (vipEstateUnlocked) {
+      vipEstateGate.unlock(false);
+    }
+    const dragonCourtyard = this.drawDragonCourtyard();
+    dragonCourtyard.setDeliveryState(vipADelivered, vipBDelivered, false);
     this.drawEnvironment();
     this.drawZoneLabels();
 
@@ -154,6 +170,30 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.pandaNavigationMarker.x,
         PROTOTYPE_LAYOUT.pandaNavigationMarker.y,
       ),
+      vipEstateGatePosition: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.vipEstateGatePosition.x,
+        PROTOTYPE_LAYOUT.vipEstateGatePosition.y,
+      ),
+      vipEstateGateInteractionPoint: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.vipEstateGateInteractionPoint.x,
+        PROTOTYPE_LAYOUT.vipEstateGateInteractionPoint.y,
+      ),
+      vipEstateNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.vipEstateNavigationMarker.x,
+        PROTOTYPE_LAYOUT.vipEstateNavigationMarker.y,
+      ),
+      vipANavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.vipANavigationMarker.x,
+        PROTOTYPE_LAYOUT.vipANavigationMarker.y,
+      ),
+      vipBNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.vipBNavigationMarker.x,
+        PROTOTYPE_LAYOUT.vipBNavigationMarker.y,
+      ),
+      dragonNavigationMarker: new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.dragonNavigationMarker.x,
+        PROTOTYPE_LAYOUT.dragonNavigationMarker.y,
+      ),
       upgradeNavigationMarker: new Phaser.Math.Vector2(
         PROTOTYPE_LAYOUT.upgradeNavigationMarker.x,
         PROTOTYPE_LAYOUT.upgradeNavigationMarker.y,
@@ -165,8 +205,9 @@ export class WorldBuilder {
       parkGate,
       centralHubGate,
       richDistrictGate,
+      vipEstateGate,
+      dragonCourtyard,
       upgradeStation,
-      vipEstatePreview,
       parkNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.parkNavigationMarker,
         'PARK · 25 МОНЕТ',
@@ -174,7 +215,7 @@ export class WorldBuilder {
       ),
       catNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.catNavigationMarker,
-        'ЦЕЛЬ: КОТ',
+        `ЦЕЛЬ: ${getPetDefinition('cat').displayName.toUpperCase()}`,
         0xc997ff,
       ),
       centralHubMarkerView: this.createNavigationMarker(
@@ -184,7 +225,7 @@ export class WorldBuilder {
       ),
       foxNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.foxNavigationMarker,
-        'ЦЕЛЬ: ЛИСА',
+        `ЦЕЛЬ: ${getPetDefinition('fox').displayName.toUpperCase()}`,
         0xff9d45,
       ),
       richDistrictNavigationMarkerView: this.createNavigationMarker(
@@ -194,13 +235,33 @@ export class WorldBuilder {
       ),
       peacockNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.peacockNavigationMarker,
-        'ЦЕЛЬ: ПАВЛИН',
+        `ЦЕЛЬ: ${getPetDefinition('peacock').displayName.toUpperCase()}`,
         0x42d7dc,
       ),
       pandaNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.pandaNavigationMarker,
-        'ЦЕЛЬ: ПАНДА',
+        `ЦЕЛЬ: ${getPetDefinition('panda').displayName.toUpperCase()}`,
         0xf1f0e8,
+      ),
+      vipEstateNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.vipEstateNavigationMarker,
+        'VIP ESTATE · 800 МОНЕТ',
+        0xe5b8ff,
+      ),
+      vipANavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.vipANavigationMarker,
+        `VIP: ${getPetDefinition('vip-a').displayName.toUpperCase()}`,
+        0xffd75d,
+      ),
+      vipBNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.vipBNavigationMarker,
+        `VIP: ${getPetDefinition('vip-b').displayName.toUpperCase()}`,
+        0xd8b8ff,
+      ),
+      dragonNavigationMarkerView: this.createNavigationMarker(
+        PROTOTYPE_LAYOUT.dragonNavigationMarker,
+        `ФИНАЛ: ${getPetDefinition('dragon').displayName.toUpperCase()}`,
+        0xffd85e,
       ),
       upgradeNavigationMarkerView: this.createNavigationMarker(
         PROTOTYPE_LAYOUT.upgradeNavigationMarker,
@@ -767,11 +828,15 @@ export class WorldBuilder {
 
     const vipBoundary = this.scene.add.graphics().setDepth(DEPTH.ground + 9);
     vipBoundary.fillStyle(0x66478f, 0.98);
-    vipBoundary.fillRect(2696, 820, WORLD.width - 2696, 54);
+    vipBoundary.fillRect(2696, 820, 524, 54);
+    vipBoundary.fillRect(3480, 820, WORLD.width - 3480, 54);
     vipBoundary.lineStyle(5, 0xe3c3ff, 0.9);
-    vipBoundary.lineBetween(2696, 823, WORLD.width, 823);
-    vipBoundary.lineBetween(2696, 871, WORLD.width, 871);
-    this.addInvisibleObstacle(2696, 820, WORLD.width - 2696, 54);
+    vipBoundary.lineBetween(2696, 823, 3220, 823);
+    vipBoundary.lineBetween(3480, 823, WORLD.width, 823);
+    vipBoundary.lineBetween(2696, 871, 3220, 871);
+    vipBoundary.lineBetween(3480, 871, WORLD.width, 871);
+    this.addInvisibleObstacle(2696, 820, 524, 54);
+    this.addInvisibleObstacle(3480, 820, WORLD.width - 3480, 54);
   }
 
   private createRichDistrictGate(): ZoneGate {
@@ -969,37 +1034,253 @@ export class WorldBuilder {
       .setDepth(DEPTH.groundLabels);
   }
 
-  private drawVipEstatePreview(): VipEstatePreview {
-    this.scene.add.rectangle(3270, 805, 120, 82, 0xd2ad56).setDepth(850);
-    this.scene.add.rectangle(3470, 805, 120, 82, 0xd2ad56).setDepth(850);
+  private createVipEstateGate(): ZoneGate {
+    const { x, y } = PROTOTYPE_LAYOUT.vipEstateGatePosition;
+    const leftPost = this.scene.add
+      .rectangle(x - 112, y, 42, 112, 0xd7ad4f)
+      .setStrokeStyle(6, 0xfff2bc, 0.96)
+      .setDepth(y + 2);
+    const rightPost = this.scene.add
+      .rectangle(x + 112, y, 42, 112, 0xd7ad4f)
+      .setStrokeStyle(6, 0xfff2bc, 0.96)
+      .setDepth(y + 2);
+    const crossbar = this.scene.add
+      .rectangle(x, y, 224, 36, 0x8152b5)
+      .setStrokeStyle(6, 0xffdf72, 0.96)
+      .setDepth(y + 3);
+    const statusLabel = this.scene.add
+      .text(
+        x,
+        y - 86,
+        'VIP ESTATE\nФИНАЛЬНАЯ ЗОНА · НУЖНЫ 5 ПИТОМЦЕВ И 2 РЫВКА',
+        {
+          align: 'center',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '15px',
+          fontStyle: 'bold',
+          color: '#efe3ff',
+          backgroundColor: '#3b2555ed',
+          padding: { x: 11, y: 6 },
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(y + 4);
+    const barrier = this.addInvisibleObstacle(x - 130, y - 24, 260, 48);
+
+    return new ZoneGate(
+      this.scene,
+      VIP_ESTATE_GATE_DEFINITION,
+      new Phaser.Math.Vector2(
+        PROTOTYPE_LAYOUT.vipEstateGateInteractionPoint.x,
+        PROTOTYPE_LAYOUT.vipEstateGateInteractionPoint.y,
+      ),
+      barrier,
+      [leftPost, rightPost, crossbar],
+      statusLabel,
+    );
+  }
+
+  private drawVipEstateEnvironment(): void {
+    const estate = this.scene.add.graphics().setDepth(DEPTH.ground + 4);
+    estate.fillStyle(0x6e4d96, 0.2);
+    estate.fillRoundedRect(2720, 28, 1090, 770, 42);
+    estate.lineStyle(12, 0xe1bd5c, 0.82);
+    estate.strokeRoundedRect(2720, 28, 1090, 770, 42);
+
+    estate.lineStyle(150, 0xb99bcb, 1);
+    estate.strokePoints(
+      [
+        new Phaser.Math.Vector2(3350, 840),
+        new Phaser.Math.Vector2(3350, 690),
+        new Phaser.Math.Vector2(3190, 610),
+        new Phaser.Math.Vector2(2920, 570),
+      ],
+      false,
+      false,
+    );
+    estate.strokePoints(
+      [
+        new Phaser.Math.Vector2(3350, 690),
+        new Phaser.Math.Vector2(3510, 610),
+        new Phaser.Math.Vector2(3730, 560),
+      ],
+      false,
+      false,
+    );
+    estate.lineStyle(94, 0xf1e7f7, 1);
+    estate.strokePoints(
+      [
+        new Phaser.Math.Vector2(3350, 840),
+        new Phaser.Math.Vector2(3350, 690),
+        new Phaser.Math.Vector2(3190, 610),
+        new Phaser.Math.Vector2(2920, 570),
+      ],
+      false,
+      false,
+    );
+    estate.strokePoints(
+      [
+        new Phaser.Math.Vector2(3350, 690),
+        new Phaser.Math.Vector2(3510, 610),
+        new Phaser.Math.Vector2(3730, 560),
+      ],
+      false,
+      false,
+    );
+
+    const westGarden = this.scene.add
+      .rectangle(2890, 555, 360, 330, 0xaad783, 0.9)
+      .setStrokeStyle(8, 0xf1d36d, 0.84)
+      .setDepth(DEPTH.ground + 5);
+    const gardenFountain = this.scene.add
+      .circle(2980, 655, 52, 0x63c8e2, 0.96)
+      .setStrokeStyle(8, 0xfff4d2, 0.9)
+      .setDepth(655);
+    this.obstacles.add(gardenFountain);
+    this.scene.add.circle(2980, 655, 15, 0xf4cf60).setDepth(656);
+
+    const eastCourt = this.scene.add
+      .rectangle(3680, 555, 310, 330, 0xc5b4df, 0.94)
+      .setStrokeStyle(8, 0xf1d36d, 0.84)
+      .setDepth(DEPTH.ground + 5);
     this.addBuilding({
-      x: 3370,
-      y: 390,
-      width: 600,
-      height: 330,
-      color: 0xf0e2ff,
-      roofColor: 0x7d58a8,
-      label: 'VIP ESTATE',
+      x: 3735,
+      y: 330,
+      width: 155,
+      height: 145,
+      color: 0xf8efff,
+      roofColor: 0x7650a4,
+      label: 'VIP TOWER',
     });
-    const dragonHint = this.scene.add.graphics().setDepth(DEPTH.groundLabels + 1);
-    dragonHint.fillStyle(0x4a286f, 0.72);
-    dragonHint.fillCircle(3650, 520, 34);
-    dragonHint.fillTriangle(3618, 520, 3565, 480, 3590, 550);
-    dragonHint.fillTriangle(3682, 520, 3735, 480, 3710, 550);
-    dragonHint.fillTriangle(3670, 495, 3708, 470, 3680, 525);
-    const label = this.scene.add
-      .text(3370, 760, 'VIP ESTATE\nФИНАЛЬНАЯ ЗОНА · ЗАКРЫТО', {
+
+    for (const [x, y, color] of [
+      [2765, 150, 0xd8b955],
+      [2805, 710, 0xe8cf7a],
+      [3170, 740, 0xb988d4],
+      [3510, 740, 0xb988d4],
+      [3780, 150, 0xd8b955],
+    ] as const) {
+      this.scene.add
+        .rectangle(x, y, 28, 90, color)
+        .setStrokeStyle(5, 0xfff5ca, 0.8)
+        .setDepth(y);
+      this.scene.add.circle(x, y - 54, 18, 0xffec9c, 0.9).setDepth(y + 1);
+    }
+
+    for (const [x, y] of [
+      [2775, 400],
+      [3070, 730],
+      [3590, 730],
+      [3790, 690],
+    ] as const) {
+      this.scene.add.image(x, y, 'vip-rare-plant').setDepth(y);
+    }
+
+    this.scene.add
+      .text(
+        2890,
+        430,
+        `ЗАПАДНОЕ КРЫЛО\n${getPetDefinition('vip-a').displayName.toUpperCase()}`,
+        {
+          align: 'center',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '15px',
+          fontStyle: 'bold',
+          color: '#5a4110',
+          backgroundColor: '#fff4cde0',
+          padding: { x: 9, y: 5 },
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(DEPTH.groundLabels);
+    this.scene.add
+      .text(
+        3690,
+        430,
+        `ВОСТОЧНОЕ КРЫЛО\n${getPetDefinition('vip-b').displayName.toUpperCase()}`,
+        {
+          align: 'center',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: '15px',
+          fontStyle: 'bold',
+          color: '#4a2b62',
+          backgroundColor: '#f7efffe0',
+          padding: { x: 9, y: 5 },
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(DEPTH.groundLabels);
+
+    // Keep the prototype wing surfaces separate without making them physical walls.
+    westGarden.setAlpha(0.9);
+    eastCourt.setAlpha(0.94);
+  }
+
+  private drawDragonCourtyard(): DragonCourtyard {
+    const courtyard = this.scene.add.graphics().setDepth(DEPTH.ground + 6);
+    courtyard.fillStyle(0x4b326f, 0.88);
+    courtyard.fillRoundedRect(3030, 45, 620, 385, 30);
+    courtyard.lineStyle(10, 0xe5bd57, 0.95);
+    courtyard.strokeRoundedRect(3030, 45, 620, 385, 30);
+    courtyard.fillStyle(0x7350a1, 0.7);
+    courtyard.fillCircle(3340, 230, 128);
+    courtyard.lineStyle(7, 0xffdf6b, 0.78);
+    courtyard.strokeCircle(3340, 230, 128);
+
+    this.addBuilding({
+      x: 3340,
+      y: 90,
+      width: 290,
+      height: 95,
+      color: 0xeadcff,
+      roofColor: 0x6e3c98,
+      label: 'DRAGON COURTYARD',
+    });
+
+    this.addInvisibleObstacle(3030, 45, 28, 385);
+    this.addInvisibleObstacle(3622, 45, 28, 385);
+    this.addInvisibleObstacle(3030, 398, 80, 32);
+    this.addInvisibleObstacle(3270, 398, 130, 32);
+    this.addInvisibleObstacle(3560, 398, 90, 32);
+
+    const leftBarrier = this.addInvisibleObstacle(3110, 394, 160, 40);
+    const rightBarrier = this.addInvisibleObstacle(3400, 394, 160, 40);
+    const leftDoor = this.scene.add
+      .rectangle(3190, 414, 150, 28, 0xb94f75)
+      .setStrokeStyle(5, 0xffd4e5, 0.95)
+      .setDepth(435);
+    const rightDoor = this.scene.add
+      .rectangle(3480, 414, 150, 28, 0xb94f75)
+      .setStrokeStyle(5, 0xffd4e5, 0.95)
+      .setDepth(435);
+    const leftSeal = this.scene.add
+      .circle(3300, 390, 16, 0xe3557d, 0.95)
+      .setStrokeStyle(5, 0xffd0e0, 0.95)
+      .setDepth(440);
+    const rightSeal = this.scene.add
+      .circle(3380, 390, 16, 0xe3557d, 0.95)
+      .setStrokeStyle(5, 0xffd0e0, 0.95)
+      .setDepth(440);
+    const statusLabel = this.scene.add
+      .text(3340, 470, 'ЗАЩИТА ДРАКОНА · 0/2', {
         align: 'center',
         fontFamily: 'Arial, sans-serif',
-        fontSize: '19px',
+        fontSize: '17px',
         fontStyle: 'bold',
-        color: '#efe3ff',
-        backgroundColor: '#3b2555e8',
-        padding: { x: 13, y: 7 },
+        color: '#ffe0ed',
+        backgroundColor: '#4a2343e8',
+        padding: { x: 11, y: 6 },
       })
       .setOrigin(0.5)
-      .setDepth(900);
-    return new VipEstatePreview(label);
+      .setDepth(475);
+
+    return new DragonCourtyard(
+      this.scene,
+      [leftBarrier, rightBarrier],
+      [leftDoor, rightDoor],
+      [leftSeal, rightSeal],
+      statusLabel,
+    );
   }
 
   private drawEnvironment(): void {

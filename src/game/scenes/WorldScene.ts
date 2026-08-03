@@ -3,6 +3,10 @@ import Phaser from 'phaser';
 import { PET_CONFIG, WORLD } from '../config/gameplay';
 import { PET_ENCOUNTER_DEFINITIONS } from '../data/encounters';
 import { getPetDefinition, type PetId } from '../data/pets';
+import {
+  DOUBLE_DASH_UPGRADE,
+  FAST_DASH_UPGRADE,
+} from '../data/upgrades';
 import { ZoneId } from '../data/zones';
 import { OwnerState } from '../entities/OwnerNpc';
 import { OwnerNpc } from '../entities/OwnerNpc';
@@ -16,10 +20,12 @@ import { EconomySystem } from '../systems/EconomySystem';
 import { PetEncounter } from '../systems/PetEncounter';
 import { PlayerPathHistory } from '../systems/PlayerPathHistory';
 import { ProgressionSystem } from '../systems/ProgressionSystem';
+import { RunStatsSystem } from '../systems/RunStatsSystem';
 import { type GameSaveData, SaveSystem } from '../systems/SaveSystem';
 import { UpgradeSystem } from '../systems/UpgradeSystem';
 import { ZoneGateSystem } from '../systems/ZoneGateSystem';
 import { Hud } from '../ui/Hud';
+import { VictoryOverlay } from '../ui/VictoryOverlay';
 import { createPrototypeTextures } from '../utils/createPrototypeTextures';
 import { DeveloperTools } from '../utils/DeveloperTools';
 import { WorldBuilder, type WorldBuildResult } from '../world/WorldBuilder';
@@ -32,13 +38,18 @@ export class WorldScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
   private upgradeSystem!: UpgradeSystem;
   private pathHistory!: PlayerPathHistory;
+  private baseSystem!: BaseSystem;
+  private runStats!: RunStatsSystem;
   private encounters: readonly PetEncounter[] = [];
   private coreLoop!: CoreLoopSystem;
   private hud!: Hud;
+  private victoryOverlay!: VictoryOverlay;
   private world!: WorldBuildResult;
   private saveTimer: Phaser.Time.TimerEvent | null = null;
   private developerTools: DeveloperTools | null = null;
   private suppressSaveOnShutdown = false;
+  private pageHidden = document.hidden;
+  private hiddenAtGameTime: number | null = null;
   private catReturnTestPositionIndex = 0;
 
   public constructor() {
@@ -64,11 +75,21 @@ export class WorldScene extends Phaser.Scene {
     );
     this.upgradeSystem.connectPrerequisiteContext(this.progression);
     this.progression.updateForMoney(this.economy.getMoney());
+    this.runStats = new RunStatsSystem(
+      {
+        ...savedGame.runStats,
+        campaignCompleted: this.progression.isCampaignComplete(),
+      },
+      savedGame.deliveredPetIds.length,
+    );
 
     this.world = new WorldBuilder(this).build(
       this.progression.isZoneUnlocked(ZoneId.Park),
       this.progression.isZoneUnlocked(ZoneId.CentralHub),
       this.progression.isZoneUnlocked(ZoneId.RichDistrict),
+      this.progression.isZoneUnlocked(ZoneId.VipEstate),
+      this.progression.isPetDelivered('vip-a'),
+      this.progression.isPetDelivered('vip-b'),
     );
     this.player = new Player(
       this,
@@ -83,17 +104,24 @@ export class WorldScene extends Phaser.Scene {
       PET_CONFIG.breadcrumbMaxPoints,
     );
     this.hud = new Hud(this);
+    this.victoryOverlay = new VictoryOverlay(this, {
+      onContinue: () => {
+        this.hud.showToast('Кампания завершена · свободное исследование', 2100);
+      },
+      onNewGame: () => this.resetSave(),
+    });
 
-    const baseSystem = new BaseSystem(
+    this.baseSystem = new BaseSystem(
       this.world.playerDeliveryZone,
       this.world.playerPetSlots,
     );
-    this.encounters = this.createEncounters(baseSystem);
+    this.encounters = this.createEncounters(this.baseSystem);
     const gateSystem = new ZoneGateSystem(
       [
         this.world.parkGate,
         this.world.centralHubGate,
         this.world.richDistrictGate,
+        this.world.vipEstateGate,
       ],
       this.economy,
       this.progression,
@@ -104,13 +132,14 @@ export class WorldScene extends Phaser.Scene {
       scene: this,
       player: this.player,
       encounters: this.encounters,
-      baseSystem,
+      baseSystem: this.baseSystem,
       gateSystem,
       economy: this.economy,
       progression: this.progression,
       upgradeSystem: this.upgradeSystem,
       upgradeStation: this.world.upgradeStation,
-      vipEstatePreview: this.world.vipEstatePreview,
+      dragonCourtyard: this.world.dragonCourtyard,
+      runStats: this.runStats,
       pathHistory: this.pathHistory,
       hud: this.hud,
       input: this.inputController,
@@ -122,9 +151,14 @@ export class WorldScene extends Phaser.Scene {
         richDistrict: this.world.richDistrictNavigationMarkerView,
         peacock: this.world.peacockNavigationMarkerView,
         panda: this.world.pandaNavigationMarkerView,
+        vipEstate: this.world.vipEstateNavigationMarkerView,
+        vipA: this.world.vipANavigationMarkerView,
+        vipB: this.world.vipBNavigationMarkerView,
+        dragon: this.world.dragonNavigationMarkerView,
         upgrade: this.world.upgradeNavigationMarkerView,
       },
       onProgressChanged: () => this.persistProgress(),
+      onVictory: () => this.showVictory(),
     });
 
     this.configureDeveloperTools();
@@ -137,6 +171,7 @@ export class WorldScene extends Phaser.Scene {
       callback: () => this.persistProgress(),
     });
     window.addEventListener('beforeunload', this.handleBeforeUnload);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.scale.on('resize', this.resizeCamera, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
 
@@ -149,41 +184,36 @@ export class WorldScene extends Phaser.Scene {
       savedGame.purchasedUpgradeIds.length > 0 ||
       savedGame.money > 0;
     this.hud.showToast(
-      restoredProgress
-        ? 'Прогресс восстановлен'
-        : 'Найди чужую базу и укради Собаку',
+      this.progression.isCampaignComplete()
+        ? 'Кампания завершена — прогресс восстановлен'
+        : restoredProgress
+          ? 'Прогресс восстановлен'
+          : `Найди чужую базу · ${this.progression.getObjective(0)}`,
       1900,
     );
   }
 
   public override update(time: number, delta: number): void {
+    this.victoryOverlay.update();
+    if (this.victoryOverlay.isVisible()) {
+      this.developerTools?.update(time);
+      this.player.setVelocity(0, 0);
+      this.economy.update(delta);
+      this.hud.recordPerformance(time, delta);
+      this.updateRuntimeHud(time);
+      return;
+    }
+
     const frameInput = this.inputController.readFrame();
 
     this.developerTools?.update(time);
+    this.runStats.update(delta, !this.pageHidden);
     this.player.updatePlayer(time, frameInput.movement, frameInput.dashPressed);
     this.pathHistory.record(this.player);
     this.coreLoop.update(time, delta, frameInput.interactPressed);
     this.economy.update(delta);
     this.hud.recordPerformance(time, delta);
-
-    this.hud.updateMoney(
-      this.economy.getDisplayedMoney(),
-      this.economy.getIncomePerSecond(),
-    );
-    const dashRechargeRatio = this.player.getDashRechargeRatio(time);
-    const dashCharges = this.player.getDashCharges();
-    const maxDashCharges = this.player.getMaxDashCharges();
-    this.hud.setDashState(
-      dashCharges,
-      maxDashCharges,
-      dashRechargeRatio,
-      this.inputController.isMobileMode,
-    );
-    this.inputController.setDashState(
-      dashCharges,
-      maxDashCharges,
-      dashRechargeRatio,
-    );
+    this.updateRuntimeHud(time);
 
     if (frameInput.debugPressed) {
       this.hud.toggleDebug();
@@ -207,6 +237,27 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private updateRuntimeHud(time: number): void {
+    this.hud.updateMoney(
+      this.economy.getDisplayedMoney(),
+      this.economy.getIncomePerSecond(),
+    );
+    const dashRechargeRatio = this.player.getDashRechargeRatio(time);
+    const dashCharges = this.player.getDashCharges();
+    const maxDashCharges = this.player.getMaxDashCharges();
+    this.hud.setDashState(
+      dashCharges,
+      maxDashCharges,
+      dashRechargeRatio,
+      this.inputController.isMobileMode,
+    );
+    this.inputController.setDashState(
+      dashCharges,
+      maxDashCharges,
+      dashRechargeRatio,
+    );
+  }
+
   private createEncounters(baseSystem: BaseSystem): readonly PetEncounter[] {
     return PET_ENCOUNTER_DEFINITIONS.map((definition) => {
       const petDefinition = getPetDefinition(definition.petId);
@@ -226,6 +277,7 @@ export class WorldScene extends Phaser.Scene {
           pursuerDefinition.visualKey,
           pursuerDefinition.chase,
           pursuerDefinition.returnRoutes,
+          pursuerDefinition.returnResetAfterMs,
         );
         return {
           definition: pursuerDefinition,
@@ -294,6 +346,16 @@ export class WorldScene extends Phaser.Scene {
           this.world.richDistrictGateInteractionPoint.x,
           this.world.richDistrictGateInteractionPoint.y,
         ),
+      toVipEstateGate: () =>
+        this.player.setPosition(
+          this.world.vipEstateGateInteractionPoint.x,
+          this.world.vipEstateGateInteractionPoint.y,
+        ),
+      toDragonCourtyard: () =>
+        this.player.setPosition(
+          this.world.dragonNavigationMarker.x,
+          this.world.dragonNavigationMarker.y + 90,
+        ),
       toUpgradeStation: () =>
         this.player.setPosition(
           this.world.upgradeStationPosition.x,
@@ -301,6 +363,7 @@ export class WorldScene extends Phaser.Scene {
         ),
       catchActive: (pursuerIndex) =>
         this.teleportActivePursuerToPlayer(pursuerIndex),
+      prepareVipPrerequisites: () => this.prepareVipPrerequisites(),
       deliverActive: () => this.coreLoop.completeActiveTheftForDevelopment(),
       cycleCatReturnTestPosition: () => this.cycleCatReturnTestPosition(),
       addMoney: (amount) => this.economy.addMoney(amount),
@@ -349,6 +412,57 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private prepareVipPrerequisites(): void {
+    for (const [zoneId, gate] of [
+      [ZoneId.Park, this.world.parkGate],
+      [ZoneId.CentralHub, this.world.centralHubGate],
+      [ZoneId.RichDistrict, this.world.richDistrictGate],
+    ] as const) {
+      if (!this.progression.isZoneUnlocked(zoneId)) {
+        gate.unlock(false);
+        this.progression.unlockZone(zoneId, this.economy.getMoney());
+      }
+    }
+
+    for (const petId of [
+      'dog',
+      'cat',
+      'fox',
+      'peacock',
+      'panda',
+    ] as const) {
+      if (this.progression.isPetDelivered(petId)) {
+        continue;
+      }
+      const encounter = this.encounters.find(
+        (candidate) => candidate.pet.petId === petId,
+      );
+      if (encounter === undefined) {
+        continue;
+      }
+      encounter.completeDelivery(this.baseSystem.getPetSlot(petId));
+      this.economy.addIncomeSource(
+        petId,
+        getPetDefinition(petId).incomePerSecond,
+      );
+      this.progression.deliverPet(petId, this.economy.getMoney());
+      this.runStats.recordDelivery();
+    }
+
+    for (const upgrade of [FAST_DASH_UPGRADE, DOUBLE_DASH_UPGRADE]) {
+      if (this.upgradeSystem.isPurchased(upgrade.id)) {
+        continue;
+      }
+      const missingMoney = Math.max(0, upgrade.cost - this.economy.getMoney());
+      this.economy.addMoney(missingMoney);
+      this.upgradeSystem.tryPurchase(upgrade.id);
+      this.progression.notifyUpgradePurchased(this.economy.getMoney());
+    }
+
+    this.persistProgress();
+    this.hud.showToast('DEV: prerequisites VIP ESTATE подготовлены', 1800);
+  }
+
   private getDeveloperSnapshot(): string {
     return [
       `stage=${this.progression.getStage()}`,
@@ -363,9 +477,12 @@ export class WorldScene extends Phaser.Scene {
       `park=${this.progression.isZoneUnlocked(ZoneId.Park)}`,
       `hub=${this.progression.isZoneUnlocked(ZoneId.CentralHub)}`,
       `rich=${this.progression.isZoneUnlocked(ZoneId.RichDistrict)}`,
+      `vip=${this.progression.isZoneUnlocked(ZoneId.VipEstate)}`,
+      `seals=${this.world.dragonCourtyard.getSealCount()}/2`,
       `dashCd=${this.player.getDashCooldownMs()}`,
       `dash=${this.player.getDashCharges()}/${this.player.getMaxDashCharges()}`,
       `upgrades=${this.upgradeSystem.getPurchasedUpgradeIds().join(',') || 'none'}`,
+      `stats=${JSON.stringify(this.runStats.getSnapshot())}`,
       `pets=${this.encounters
         .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
         .join(',')}`,
@@ -391,8 +508,24 @@ export class WorldScene extends Phaser.Scene {
       deliveredPetIds: progression.deliveredPetIds,
       unlockedZones: progression.unlockedZones,
       purchasedUpgradeIds: this.upgradeSystem.getPurchasedUpgradeIds(),
+      runStats: this.runStats.getSnapshot(),
     };
     this.saveSystem.save(saveData);
+  }
+
+  private showVictory(): void {
+    this.persistProgress();
+    this.hud.setObjective(
+      this.progression.getObjective(this.economy.getDisplayedMoney()),
+    );
+    this.cameras.main.flash(520, 255, 224, 100, false);
+    const stats = this.runStats.getSnapshot();
+    this.victoryOverlay.show({
+      deliveredPets: this.progression.getSnapshot().deliveredPetIds.length,
+      elapsedMs: stats.elapsedMs,
+      failedThefts: stats.failedThefts,
+      incomePerSecond: this.economy.getIncomePerSecond(),
+    });
   }
 
   private resetSave(): void {
@@ -427,13 +560,35 @@ export class WorldScene extends Phaser.Scene {
     this.persistProgress();
   };
 
+  private readonly handleVisibilityChange = (): void => {
+    this.pageHidden = document.hidden;
+    if (this.pageHidden) {
+      this.hiddenAtGameTime = this.time.now;
+      this.player.setVelocity(0, 0);
+      this.physics.world.pause();
+      this.persistProgress();
+      return;
+    }
+
+    this.physics.world.resume();
+    if (this.hiddenAtGameTime !== null) {
+      const pausedGameTime = Math.max(0, this.time.now - this.hiddenAtGameTime);
+      this.player.shiftTiming(pausedGameTime);
+      this.coreLoop.shiftTiming(pausedGameTime);
+      this.hiddenAtGameTime = null;
+    }
+    this.pathHistory.reset(this.player);
+  };
+
   private shutdown(): void {
     this.persistProgress();
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.scale.off('resize', this.resizeCamera, this);
     this.saveTimer?.remove(false);
     this.inputController.destroy();
     this.hud.destroy();
+    this.victoryOverlay.destroy();
     this.developerTools?.destroy();
   }
 }

@@ -33,4 +33,14 @@ describe('Double Dash charge runtime', () => {
     charges.update(1300);
     expect(charges.getCharges()).toBe(2);
   });
+
+  it('does not consume a hidden-tab time jump as recharge time', () => {
+    const charges = new DashChargeController(650, 2);
+    expect(charges.tryConsume(100, true)).toBe(true);
+    charges.shiftTiming(10_000);
+    charges.update(10_649);
+    expect(charges.getCharges()).toBe(1);
+    charges.update(10_750);
+    expect(charges.getCharges()).toBe(2);
+  });
 });

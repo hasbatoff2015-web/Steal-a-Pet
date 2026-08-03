@@ -1,6 +1,7 @@
 import { PET_DEFINITIONS, type PetId } from '../data/pets';
 import { UPGRADE_DEFINITIONS, type UpgradeId } from '../data/upgrades';
 import { ZoneId } from '../data/zones';
+import type { RunStatsSnapshot } from './RunStatsSystem';
 
 const SAVE_KEY_V2 = 'steal-a-pet.save.v2';
 const LEGACY_SAVE_KEY_V1 = 'steal-a-pet.save.v1';
@@ -30,6 +31,7 @@ export interface GameSaveData {
   readonly deliveredPetIds: readonly PetId[];
   readonly unlockedZones: readonly ZoneId[];
   readonly purchasedUpgradeIds: readonly UpgradeId[];
+  readonly runStats?: RunStatsSnapshot;
 }
 
 export function isValidGameSaveData(value: unknown): value is GameSaveData {
@@ -45,7 +47,8 @@ export function isValidGameSaveData(value: unknown): value is GameSaveData {
     value.unlockedZones.every((zoneId) => isZoneId(zoneId)) &&
     value.unlockedZones.includes(ZoneId.StarterSuburb) &&
     Array.isArray(value.purchasedUpgradeIds) &&
-    value.purchasedUpgradeIds.every((upgradeId) => isUpgradeId(upgradeId));
+    value.purchasedUpgradeIds.every((upgradeId) => isUpgradeId(upgradeId)) &&
+    (value.runStats === undefined || isValidRunStats(value.runStats));
   if (!structurallyValid) {
     return false;
   }
@@ -56,11 +59,26 @@ export function isValidGameSaveData(value: unknown): value is GameSaveData {
   const parkUnlocked = unlockedZones.includes(ZoneId.Park);
   const hubUnlocked = unlockedZones.includes(ZoneId.CentralHub);
   const richUnlocked = unlockedZones.includes(ZoneId.RichDistrict);
+  const vipUnlocked = unlockedZones.includes(ZoneId.VipEstate);
   const foxDelivered = deliveredPetIds.includes('fox');
   const peacockDelivered = deliveredPetIds.includes('peacock');
   const pandaDelivered = deliveredPetIds.includes('panda');
+  const vipADelivered = deliveredPetIds.includes('vip-a');
+  const vipBDelivered = deliveredPetIds.includes('vip-b');
+  const dragonDelivered = deliveredPetIds.includes('dragon');
   const fastDashPurchased = purchasedUpgradeIds.includes('fast-dash');
   const doubleDashPurchased = purchasedUpgradeIds.includes('double-dash');
+  const fivePreviousPetsDelivered = [
+    'dog',
+    'cat',
+    'fox',
+    'peacock',
+    'panda',
+  ].every((petId) => deliveredPetIds.includes(petId as PetId));
+  const statsCampaignCompleted =
+    value.runStats === undefined
+      ? dragonDelivered
+      : (value.runStats as RunStatsSnapshot).campaignCompleted;
 
   return !(
     (hubUnlocked && !parkUnlocked) ||
@@ -70,7 +88,15 @@ export function isValidGameSaveData(value: unknown): value is GameSaveData {
     (richUnlocked && (!hubUnlocked || !foxDelivered || !fastDashPurchased)) ||
     ((peacockDelivered || pandaDelivered) && !richUnlocked) ||
     (doubleDashPurchased &&
-      (!fastDashPurchased || !peacockDelivered || !pandaDelivered))
+      (!fastDashPurchased || !peacockDelivered || !pandaDelivered)) ||
+    (vipUnlocked &&
+      (!richUnlocked ||
+        !fivePreviousPetsDelivered ||
+        !fastDashPurchased ||
+        !doubleDashPurchased)) ||
+    ((vipADelivered || vipBDelivered) && !vipUnlocked) ||
+    (dragonDelivered && (!vipUnlocked || !vipADelivered || !vipBDelivered)) ||
+    statsCampaignCompleted !== dragonDelivered
   );
 }
 
@@ -193,6 +219,27 @@ export class SaveSystem {
 
 function isValidMoney(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isValidRunStats(value: unknown): value is RunStatsSnapshot {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    isNonNegativeFiniteNumber(value.elapsedMs) &&
+    isNonNegativeInteger(value.failedThefts) &&
+    isNonNegativeInteger(value.successfulDeliveries) &&
+    typeof value.campaignCompleted === 'boolean'
+  );
+}
+
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) >= 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { PET_CONFIG } from '../config/gameplay';
+import type { PetId } from '../data/pets';
 import {
   DOUBLE_DASH_UPGRADE,
   getUpgradeDefinition,
@@ -9,14 +10,15 @@ import {
 import { Player } from '../entities/Player';
 import { InputController } from '../input/InputController';
 import { Hud } from '../ui/Hud';
+import type { DragonCourtyard } from '../world/DragonCourtyard';
 import type { ZoneGate } from '../world/ZoneGate';
 import type { UpgradeStation } from '../world/UpgradeStation';
-import type { VipEstatePreview } from '../world/VipEstatePreview';
 import { BaseSystem } from './BaseSystem';
 import { EconomySystem } from './EconomySystem';
 import { PetEncounter } from './PetEncounter';
 import { PlayerPathHistory } from './PlayerPathHistory';
 import { ProgressionStage, ProgressionSystem } from './ProgressionSystem';
+import type { RunStatsSystem } from './RunStatsSystem';
 import { UpgradePurchaseResult, UpgradeSystem } from './UpgradeSystem';
 import { GateUnlockResult, ZoneGateSystem } from './ZoneGateSystem';
 
@@ -33,6 +35,10 @@ interface NavigationMarkers {
   richDistrict: Phaser.GameObjects.Container;
   peacock: Phaser.GameObjects.Container;
   panda: Phaser.GameObjects.Container;
+  vipEstate: Phaser.GameObjects.Container;
+  vipA: Phaser.GameObjects.Container;
+  vipB: Phaser.GameObjects.Container;
+  dragon: Phaser.GameObjects.Container;
   upgrade: Phaser.GameObjects.Container;
 }
 
@@ -46,12 +52,14 @@ interface CoreLoopDependencies {
   progression: ProgressionSystem;
   upgradeSystem: UpgradeSystem;
   upgradeStation: UpgradeStation;
-  vipEstatePreview: VipEstatePreview;
+  dragonCourtyard: DragonCourtyard;
+  runStats: RunStatsSystem;
   pathHistory: PlayerPathHistory;
   hud: Hud;
   input: InputController;
   navigationMarkers: NavigationMarkers;
   onProgressChanged: () => void;
+  onVictory: () => void;
 }
 
 export class CoreLoopSystem {
@@ -64,20 +72,19 @@ export class CoreLoopSystem {
   private readonly progression: ProgressionSystem;
   private readonly upgradeSystem: UpgradeSystem;
   private readonly upgradeStation: UpgradeStation;
-  private readonly vipEstatePreview: VipEstatePreview;
+  private readonly dragonCourtyard: DragonCourtyard;
+  private readonly runStats: RunStatsSystem;
   private readonly pathHistory: PlayerPathHistory;
   private readonly hud: Hud;
   private readonly input: InputController;
   private readonly navigationMarkers: NavigationMarkers;
   private readonly onProgressChanged: () => void;
-  private readonly catEncounter: PetEncounter | undefined;
-  private readonly foxEncounter: PetEncounter | undefined;
-  private readonly peacockEncounter: PetEncounter | undefined;
-  private readonly pandaEncounter: PetEncounter | undefined;
+  private readonly onVictory: () => void;
+  private readonly encounterByPetId: ReadonlyMap<PetId, PetEncounter>;
 
   private activeEncounter: PetEncounter | null = null;
   private retryAvailableAt = 0;
-  private objective = 'Укради Собаку';
+  private objective = '';
   private parkMarkerVisible = false;
   private catMarkerVisible = false;
   private centralHubMarkerVisible = false;
@@ -85,6 +92,10 @@ export class CoreLoopSystem {
   private richDistrictMarkerVisible = false;
   private peacockMarkerVisible = false;
   private pandaMarkerVisible = false;
+  private vipEstateMarkerVisible = false;
+  private vipAMarkerVisible = false;
+  private vipBMarkerVisible = false;
+  private dragonMarkerVisible = false;
   private upgradeMarkerVisible = false;
   private cachedBaseObjective = '';
   private cachedObjectiveStage: ProgressionStage | null = null;
@@ -100,32 +111,28 @@ export class CoreLoopSystem {
     this.progression = dependencies.progression;
     this.upgradeSystem = dependencies.upgradeSystem;
     this.upgradeStation = dependencies.upgradeStation;
-    this.vipEstatePreview = dependencies.vipEstatePreview;
+    this.dragonCourtyard = dependencies.dragonCourtyard;
+    this.runStats = dependencies.runStats;
     this.pathHistory = dependencies.pathHistory;
     this.hud = dependencies.hud;
     this.input = dependencies.input;
     this.navigationMarkers = dependencies.navigationMarkers;
     this.onProgressChanged = dependencies.onProgressChanged;
-    this.catEncounter = this.encounters.find(
-      (encounter) => encounter.pet.petId === 'cat',
-    );
-    this.foxEncounter = this.encounters.find(
-      (encounter) => encounter.pet.petId === 'fox',
-    );
-    this.peacockEncounter = this.encounters.find(
-      (encounter) => encounter.pet.petId === 'peacock',
-    );
-    this.pandaEncounter = this.encounters.find(
-      (encounter) => encounter.pet.petId === 'panda',
+    this.onVictory = dependencies.onVictory;
+    this.encounterByPetId = new Map(
+      this.encounters.map((encounter) => [encounter.pet.petId, encounter]),
     );
   }
 
   public update(time: number, delta: number, interactPressed: boolean): void {
     for (const encounter of this.encounters) {
       encounter.update(time, delta, this.player, this.pathHistory);
-      const activatedPursuerId = encounter.consumeActivatedPursuerId();
-      if (activatedPursuerId !== null && encounter === this.activeEncounter) {
-        this.hud.showToast('СРАБОТАЛА СИГНАЛИЗАЦИЯ!', 1500);
+      const activatedPursuer = encounter.consumeActivatedPursuer();
+      if (activatedPursuer !== null && encounter === this.activeEncounter) {
+        this.hud.showToast(
+          activatedPursuer.activationMessage ?? 'СРАБОТАЛА СИГНАЛИЗАЦИЯ!',
+          1500,
+        );
         this.scene.cameras.main.flash(150, 220, 45, 55, false);
       }
     }
@@ -133,9 +140,6 @@ export class CoreLoopSystem {
     this.progression.updateForMoney(this.economy.getMoney());
     this.gateSystem.refreshPrerequisiteStates();
     this.upgradeStation.setState(this.upgradeSystem.getStationState());
-    this.vipEstatePreview.setRichDistrictComplete(
-      this.upgradeSystem.isPurchased(DOUBLE_DASH_UPGRADE.id),
-    );
 
     if (this.activeEncounter === null) {
       this.updateExploration(time, interactPressed);
@@ -155,6 +159,18 @@ export class CoreLoopSystem {
 
   public getActiveEncounterId(): string {
     return this.activeEncounter?.definition.id ?? 'none';
+  }
+
+  public shiftTiming(deltaMs: number): void {
+    if (deltaMs <= 0) {
+      return;
+    }
+    if (this.retryAvailableAt > 0) {
+      this.retryAvailableAt += deltaMs;
+    }
+    for (const encounter of this.encounters) {
+      encounter.shiftTiming(deltaMs);
+    }
   }
 
   public completeActiveTheftForDevelopment(): boolean {
@@ -247,7 +263,7 @@ export class CoreLoopSystem {
     }
 
     this.setInteraction(false);
-    this.objective = `Убегай! Верни ${encounter.pet.displayName} на базу`;
+    this.objective = `Верни питомца на базу: ${encounter.pet.displayName}`;
 
     if (
       this.baseSystem.canDeliver(
@@ -292,6 +308,7 @@ export class CoreLoopSystem {
     this.retryAvailableAt = time + encounter.getFailureGraceMs();
     encounter.failTheft();
     this.progression.cancelTheft(this.economy.getMoney());
+    this.runStats.recordFailedTheft();
     this.activeEncounter = null;
     this.player.applyCaughtFeedback(
       new Phaser.Math.Vector2(catchingOwner.x, catchingOwner.y),
@@ -300,6 +317,7 @@ export class CoreLoopSystem {
       `ПОЙМАЛИ! ${encounter.pet.displayName} вернулся домой`,
       1900,
     );
+    this.onProgressChanged();
   }
 
   private completeDelivery(encounter: PetEncounter): void {
@@ -312,10 +330,32 @@ export class CoreLoopSystem {
       encounter.pet.petId,
       this.economy.getMoney(),
     );
+    this.runStats.recordDelivery();
+    if (encounter.pet.petId === 'dragon') {
+      this.runStats.completeCampaign();
+    }
     this.activeEncounter = null;
+    this.dragonCourtyard.setDeliveryState(
+      this.progression.isPetDelivered('vip-a'),
+      this.progression.isPetDelivered('vip-b'),
+      true,
+    );
     this.onProgressChanged();
 
-    if (encounter.pet.petId === 'peacock' || encounter.pet.petId === 'panda') {
+    if (encounter.pet.petId === 'dragon') {
+      this.hud.showToast('ПОБЕДА! Все питомцы теперь на базе', 2800);
+    } else if (
+      encounter.pet.petId === 'vip-a' ||
+      encounter.pet.petId === 'vip-b'
+    ) {
+      const vipDelivered = this.progression.getVipPetDeliveryCount();
+      this.hud.showToast(
+        vipDelivered >= 2
+          ? 'ЗАЩИТА СНЯТА — ДРАКОН ДОСТУПЕН'
+          : `${encounter.pet.displayName} теперь на базе · замок отключён`,
+        2800,
+      );
+    } else if (encounter.pet.petId === 'peacock' || encounter.pet.petId === 'panda') {
       const richDelivered = this.progression.getRichPetDeliveryCount();
       this.hud.showToast(
         richDelivered >= 2
@@ -331,6 +371,9 @@ export class CoreLoopSystem {
       this.hud.showToast('Питомец спасён… ну почти 😄', 2300);
     }
     this.createDeliveryCelebration(encounter);
+    if (encounter.pet.petId === 'dragon') {
+      this.onVictory();
+    }
   }
 
   private tryUnlockGate(gate: ZoneGate): void {
@@ -386,8 +429,13 @@ export class CoreLoopSystem {
 
   private updateNavigationMarkers(): void {
     const stage = this.progression.getStage();
-    const catEncounter = this.catEncounter;
-    const foxEncounter = this.foxEncounter;
+    const catEncounter = this.encounterByPetId.get('cat');
+    const foxEncounter = this.encounterByPetId.get('fox');
+    const peacockEncounter = this.encounterByPetId.get('peacock');
+    const pandaEncounter = this.encounterByPetId.get('panda');
+    const vipAEncounter = this.encounterByPetId.get('vip-a');
+    const vipBEncounter = this.encounterByPetId.get('vip-b');
+    const dragonEncounter = this.encounterByPetId.get('dragon');
     const closeToCat =
       catEncounter !== undefined && this.isPlayerCloseToEncounter(catEncounter);
     const closeToFox =
@@ -406,13 +454,30 @@ export class CoreLoopSystem {
     const peacockVisible =
       stage === ProgressionStage.StealRichPets &&
       !this.progression.isPetDelivered('peacock') &&
-      this.peacockEncounter !== undefined &&
-      !this.isPlayerCloseToEncounter(this.peacockEncounter);
+      peacockEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(peacockEncounter);
     const pandaVisible =
       stage === ProgressionStage.StealRichPets &&
       !this.progression.isPetDelivered('panda') &&
-      this.pandaEncounter !== undefined &&
-      !this.isPlayerCloseToEncounter(this.pandaEncounter);
+      pandaEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(pandaEncounter);
+    const vipEstateVisible =
+      stage === ProgressionStage.EarnForVipEstate ||
+      stage === ProgressionStage.UnlockVipEstate;
+    const vipAVisible =
+      stage === ProgressionStage.StealVipPets &&
+      !this.progression.isPetDelivered('vip-a') &&
+      vipAEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(vipAEncounter);
+    const vipBVisible =
+      stage === ProgressionStage.StealVipPets &&
+      !this.progression.isPetDelivered('vip-b') &&
+      vipBEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(vipBEncounter);
+    const dragonVisible =
+      stage === ProgressionStage.DragonAvailable &&
+      dragonEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(dragonEncounter);
     const upgradeVisible =
       stage === ProgressionStage.EarnForDashUpgrade ||
       stage === ProgressionStage.BuyDashUpgrade ||
@@ -446,6 +511,22 @@ export class CoreLoopSystem {
     if (pandaVisible !== this.pandaMarkerVisible) {
       this.pandaMarkerVisible = pandaVisible;
       this.navigationMarkers.panda.setVisible(pandaVisible);
+    }
+    if (vipEstateVisible !== this.vipEstateMarkerVisible) {
+      this.vipEstateMarkerVisible = vipEstateVisible;
+      this.navigationMarkers.vipEstate.setVisible(vipEstateVisible);
+    }
+    if (vipAVisible !== this.vipAMarkerVisible) {
+      this.vipAMarkerVisible = vipAVisible;
+      this.navigationMarkers.vipA.setVisible(vipAVisible);
+    }
+    if (vipBVisible !== this.vipBMarkerVisible) {
+      this.vipBMarkerVisible = vipBVisible;
+      this.navigationMarkers.vipB.setVisible(vipBVisible);
+    }
+    if (dragonVisible !== this.dragonMarkerVisible) {
+      this.dragonMarkerVisible = dragonVisible;
+      this.navigationMarkers.dragon.setVisible(dragonVisible);
     }
     if (upgradeVisible !== this.upgradeMarkerVisible) {
       this.upgradeMarkerVisible = upgradeVisible;
@@ -497,9 +578,11 @@ export class CoreLoopSystem {
 
   private createDeliveryCelebration(encounter: PetEncounter): void {
     const colors = [0xffd23f, 0x6ce39a, 0x72c7ff, 0xff85b3];
+    const particleCount = encounter.pet.petId === 'dragon' ? 28 : 12;
+    const radius = encounter.pet.petId === 'dragon' ? 170 : 100;
 
-    for (let index = 0; index < 12; index += 1) {
-      const angle = (Math.PI * 2 * index) / 12;
+    for (let index = 0; index < particleCount; index += 1) {
+      const angle = (Math.PI * 2 * index) / particleCount;
       const particle = this.scene.add
         .circle(
           encounter.pet.x,
@@ -511,11 +594,11 @@ export class CoreLoopSystem {
 
       this.scene.tweens.add({
         targets: particle,
-        x: encounter.pet.x + Math.cos(angle) * 100,
-        y: encounter.pet.y + Math.sin(angle) * 100,
+        x: encounter.pet.x + Math.cos(angle) * radius,
+        y: encounter.pet.y + Math.sin(angle) * radius,
         alpha: 0,
         scale: 0.3,
-        duration: 620,
+        duration: encounter.pet.petId === 'dragon' ? 900 : 620,
         ease: 'Quad.easeOut',
         onComplete: () => particle.destroy(),
       });

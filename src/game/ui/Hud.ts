@@ -349,8 +349,10 @@ export class Hud {
     const compact = width < 760;
     const veryNarrow = width <= 360;
     const edge = compact ? 10 : 18;
-    const moneyWidth = compact ? Math.min(width - 20, 200) : 186;
-    const objectiveWidth = compact ? width - 20 : Math.min(520, width - 412);
+    const moneyWidth = compact ? width - 20 : 186;
+    const objectiveWidth = compact
+      ? width - 20
+      : Math.max(260, Math.min(520, width - 444));
 
     this.moneyPanel.setPosition(edge, compact ? 76 : 16).setSize(moneyWidth, compact ? 52 : 58);
     this.moneyText

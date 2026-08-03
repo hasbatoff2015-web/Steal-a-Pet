@@ -16,11 +16,12 @@ export class Pet extends Phaser.GameObjects.Sprite {
   public readonly incomePerSecond: number;
 
   private readonly shadow: Phaser.GameObjects.Ellipse;
-  private readonly idlePhase: number;
+  private readonly prototypeVisual: PetDefinition['prototypeVisual'];
   private petState = PetState.AtNpcBase;
   private idleAnchor: Phaser.Math.Vector2;
   private lastBreadcrumbSequence: number | null = null;
   private nextIncomeFeedbackAt = Number.POSITIVE_INFINITY;
+  private nextIdleVisualAt = 0;
 
   public constructor(
     scene: Phaser.Scene,
@@ -33,29 +34,12 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.petId = definition.id as PetId;
     this.displayName = definition.displayName;
     this.incomePerSecond = definition.incomePerSecond;
-    this.idlePhase =
-      definition.id === 'cat'
-        ? Math.PI * 0.65
-        : definition.id === 'fox'
-          ? Math.PI * 1.15
-          : definition.id === 'peacock'
-            ? Math.PI * 1.55
-            : definition.id === 'panda'
-              ? Math.PI * 0.3
-              : 0;
+    this.prototypeVisual = definition.prototypeVisual;
     this.idleAnchor = new Phaser.Math.Vector2(x, y);
     this.shadow = scene.add.ellipse(
       x,
       y + 17,
-      definition.id === 'cat'
-        ? 38
-        : definition.id === 'fox'
-          ? 47
-          : definition.id === 'peacock'
-            ? 62
-            : definition.id === 'panda'
-              ? 54
-              : 43,
+      this.prototypeVisual.shadowWidth,
       14,
       0x18324a,
       0.24,
@@ -96,7 +80,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.setScale(this.getIdleScale(true));
     this.setTint(this.getBaseTint());
     this.nextIncomeFeedbackAt =
-      this.scene.time.now + 1200 + Math.abs(this.idlePhase) * 380;
+      this.scene.time.now + 1200 + Math.abs(this.prototypeVisual.idlePhase) * 380;
     this.updateDepth();
   }
 
@@ -108,19 +92,23 @@ export class Pet extends Phaser.GameObjects.Sprite {
   ): void {
     if (this.petState === PetState.FollowingPlayer) {
       this.updateFollowing(delta, player, pathHistory);
+      this.shadow.setPosition(this.x, this.y + 16);
+      this.updateDepth();
     } else {
-      this.updateIdle(time);
+      if (time >= this.nextIdleVisualAt) {
+        this.nextIdleVisualAt = time + 80;
+        this.updateIdle(time);
+        this.shadow.setPosition(this.x, this.y + 16);
+        this.updateDepth();
+      }
       if (
         this.petState === PetState.AtPlayerBase &&
         time >= this.nextIncomeFeedbackAt
       ) {
         this.createIncomeFeedback();
-        this.nextIncomeFeedbackAt = time + 3200;
+        this.nextIncomeFeedbackAt = time + 4800;
       }
     }
-
-    this.shadow.setPosition(this.x, this.y + 16);
-    this.updateDepth();
   }
 
   private updateFollowing(
@@ -185,75 +173,36 @@ export class Pet extends Phaser.GameObjects.Sprite {
   }
 
   private updateIdle(time: number): void {
-    const catMotion = this.petId === 'cat';
-    const foxMotion = this.petId === 'fox';
-    const peacockMotion = this.petId === 'peacock';
-    const pandaMotion = this.petId === 'panda';
+    const visual = this.prototypeVisual;
     const bob =
-      Math.sin(
-        time /
-          (catMotion
-            ? 220
-            : foxMotion
-              ? 245
-              : peacockMotion
-                ? 310
-                : pandaMotion
-                  ? 360
-                  : 280) +
-          this.idlePhase,
-      ) * (pandaMotion ? 2 : 3);
+      Math.sin(time / visual.idleBobPeriodMs + visual.idlePhase) *
+      visual.idleBobAmplitude;
     const sway =
-      catMotion || foxMotion || peacockMotion
-        ? Math.sin(time / (foxMotion ? 460 : peacockMotion ? 620 : 520) + this.idlePhase) *
-          (foxMotion ? 6 : peacockMotion ? 5 : 4)
-        : 0;
+      Math.sin(time / visual.idleSwayPeriodMs + visual.idlePhase) *
+      visual.idleSwayAmplitude;
     this.setPosition(this.idleAnchor.x + sway, this.idleAnchor.y + bob);
     const baseScale = this.getIdleScale(this.petState === PetState.AtPlayerBase);
-    if (peacockMotion) {
-      const tailPulse = (Math.sin(time / 520 + this.idlePhase) + 1) * 0.5;
-      this.setScale(baseScale * (1 + tailPulse * 0.045), baseScale);
-    } else if (pandaMotion) {
-      const squash = Math.sin(time / 430 + this.idlePhase) * 0.025;
-      this.setScale(baseScale * (1 + squash), baseScale * (1 - squash));
+    const scalePulse = visual.idleScalePulse ?? 0;
+    if (scalePulse > 0) {
+      const squash = Math.sin(time / visual.idleRotationPeriodMs + visual.idlePhase) * scalePulse;
+      this.setScale(baseScale * (1 + squash), baseScale * (1 - squash * 0.35));
+    } else {
+      this.setScale(baseScale);
     }
     this.setRotation(
-      Math.sin(
-        time /
-          (catMotion ? 320 : foxMotion ? 290 : peacockMotion ? 510 : 430) +
-          this.idlePhase,
-      ) * (foxMotion ? 0.065 : peacockMotion ? 0.035 : 0.05),
+      Math.sin(time / visual.idleRotationPeriodMs + visual.idlePhase) *
+        visual.idleRotationAmplitude,
     );
   }
 
   private getIdleScale(atPlayerBase: boolean): number {
-    switch (this.petId) {
-      case 'cat':
-        return atPlayerBase ? 1 : 0.94;
-      case 'fox':
-        return atPlayerBase ? 1.08 : 1.04;
-      case 'peacock':
-        return atPlayerBase ? 1.02 : 0.98;
-      case 'panda':
-        return atPlayerBase ? 1.06 : 1.02;
-      case 'dog':
-        return atPlayerBase ? 1.06 : 1;
-    }
+    return atPlayerBase
+      ? this.prototypeVisual.playerBaseScale
+      : this.prototypeVisual.npcScale;
   }
 
   private getBaseTint(): number {
-    switch (this.petId) {
-      case 'cat':
-        return 0xf1ddff;
-      case 'fox':
-        return 0xffdfba;
-      case 'peacock':
-        return 0xd4ffff;
-      case 'panda':
-        return 0xfff8df;
-      case 'dog':
-        return 0xfff3a6;
-    }
+    return this.prototypeVisual.playerBaseTint;
   }
 
   private updateDepth(): void {

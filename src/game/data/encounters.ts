@@ -20,13 +20,16 @@ export interface PursuerDefinition {
   readonly visualKey: string;
   readonly chase: ChaseParameters;
   readonly activationDelayMs?: number;
+  readonly activationMessage?: string;
   readonly returnRoutes?: readonly (readonly WorldPoint[])[];
+  readonly returnResetAfterMs?: number;
 }
 
 export interface PetEncounterDefinition {
   readonly id: string;
   readonly petId: PetId;
   readonly requiredZone: ZoneId;
+  readonly requiredPetIds?: readonly PetId[];
   readonly petHome: WorldPoint;
   readonly pursuers: readonly PursuerDefinition[];
 }
@@ -236,6 +239,217 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
             { x: 3690, y: 1690 },
             { x: 3550, y: 1930 },
             { x: 3300, y: 2220 },
+          ],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'vip-west-garden',
+    petId: 'vip-a',
+    requiredZone: ZoneId.VipEstate,
+    petHome: { x: 2880, y: 520 },
+    pursuers: [
+      {
+        id: 'vip-a-owner',
+        home: { x: 2795, y: 620 },
+        visualKey: 'vip-owner-gold',
+        chase: {
+          npcSpeed: 240,
+          returnSpeed: 198,
+          catchDistance: 45,
+          theftHeadStartMs: 600,
+          failureGraceMs: 1750,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 760 },
+            { x: 3090, y: 690 },
+            { x: 2795, y: 620 },
+          ],
+        ],
+      },
+      {
+        id: 'vip-a-garden-guard',
+        home: { x: 3090, y: 555 },
+        visualKey: 'vip-guard-gold',
+        activationDelayMs: 750,
+        activationMessage: 'СРАБОТАЛА ТРЕВОГА!',
+        chase: {
+          npcSpeed: 232,
+          returnSpeed: 194,
+          catchDistance: 44,
+          theftHeadStartMs: 0,
+          failureGraceMs: 1750,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 760 },
+            { x: 3200, y: 660 },
+            { x: 3090, y: 555 },
+          ],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'vip-east-tower',
+    petId: 'vip-b',
+    requiredZone: ZoneId.VipEstate,
+    petHome: { x: 3740, y: 500 },
+    pursuers: [
+      {
+        id: 'vip-b-owner',
+        home: { x: 3680, y: 615 },
+        visualKey: 'vip-owner-purple',
+        chase: {
+          npcSpeed: 242,
+          returnSpeed: 198,
+          catchDistance: 45,
+          theftHeadStartMs: 580,
+          failureGraceMs: 1750,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 760 },
+            { x: 3600, y: 700 },
+            { x: 3680, y: 615 },
+          ],
+        ],
+      },
+      {
+        id: 'vip-b-intercept-guard',
+        home: { x: 3480, y: 735 },
+        visualKey: 'vip-guard-purple',
+        activationDelayMs: 1000,
+        activationMessage: 'ПЕРЕХВАТЧИК ВЫШЕЛ К ВОРОТАМ!',
+        chase: {
+          npcSpeed: 230,
+          returnSpeed: 192,
+          catchDistance: 44,
+          theftHeadStartMs: 0,
+          failureGraceMs: 1750,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 760 },
+            { x: 3480, y: 735 },
+          ],
+        ],
+      },
+    ],
+  },
+  {
+    id: 'vip-dragon-courtyard',
+    petId: 'dragon',
+    requiredZone: ZoneId.VipEstate,
+    requiredPetIds: ['vip-a', 'vip-b'],
+    petHome: { x: 3340, y: 220 },
+    pursuers: [
+      {
+        id: 'dragon-boss',
+        home: { x: 3340, y: 330 },
+        visualKey: 'vip-boss',
+        chase: {
+          npcSpeed: 240,
+          returnSpeed: 198,
+          catchDistance: 46,
+          theftHeadStartMs: 620,
+          failureGraceMs: 1900,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 720 },
+            { x: 3470, y: 450 },
+            { x: 3340, y: 330 },
+          ],
+          [
+            { x: 3210, y: 450 },
+            { x: 3340, y: 330 },
+          ],
+        ],
+      },
+      {
+        id: 'dragon-guard-a',
+        home: { x: 3140, y: 300 },
+        visualKey: 'vip-guard-gold',
+        activationDelayMs: 700,
+        activationMessage: 'СРАБОТАЛА ТРЕВОГА!',
+        chase: {
+          npcSpeed: 233,
+          returnSpeed: 194,
+          catchDistance: 44,
+          theftHeadStartMs: 0,
+          failureGraceMs: 1900,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 720 },
+            { x: 3210, y: 450 },
+            { x: 3140, y: 300 },
+          ],
+        ],
+      },
+      {
+        id: 'dragon-guard-b',
+        home: { x: 3540, y: 305 },
+        visualKey: 'vip-guard-purple',
+        activationDelayMs: 1400,
+        activationMessage: 'ПОДКРЕПЛЕНИЕ ПРИБЫЛО!',
+        chase: {
+          npcSpeed: 230,
+          returnSpeed: 192,
+          catchDistance: 44,
+          theftHeadStartMs: 0,
+          failureGraceMs: 1900,
+        },
+        returnResetAfterMs: 6000,
+        returnRoutes: [
+          [
+            { x: 900, y: 1220 },
+            { x: 1760, y: 1460 },
+            { x: 2490, y: 1460 },
+            { x: 3040, y: 1320 },
+            { x: 3350, y: 940 },
+            { x: 3350, y: 720 },
+            { x: 3470, y: 450 },
+            { x: 3540, y: 305 },
           ],
         ],
       },

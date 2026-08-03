@@ -8,11 +8,12 @@ export class EconomySystem {
   }
 
   public update(deltaMs: number): void {
-    if (this.incomeSources.size === 0) {
+    if (this.incomeSources.size === 0 || !Number.isFinite(deltaMs)) {
       return;
     }
 
-    this.money += this.totalIncomePerSecond * (deltaMs / 1000);
+    const safeDeltaMs = Math.min(100, Math.max(0, deltaMs));
+    this.money += this.totalIncomePerSecond * (safeDeltaMs / 1000);
   }
 
   public addIncomeSource(id: string, incomePerSecond: number): void {
