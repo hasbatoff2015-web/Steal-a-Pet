@@ -4,6 +4,7 @@ import type { ZoneGateDefinition } from '../data/zones';
 
 export class ZoneGate {
   private unlocked = false;
+  private prerequisitesMet: boolean | null = null;
 
   public constructor(
     private readonly scene: Phaser.Scene,
@@ -27,6 +28,28 @@ export class ZoneGate {
         this.interactionPoint.y,
       ) <= 135
     );
+  }
+
+  public setPrerequisitesMet(prerequisitesMet: boolean): void {
+    if (this.unlocked || prerequisitesMet === this.prerequisitesMet) {
+      return;
+    }
+
+    this.prerequisitesMet = prerequisitesMet;
+    if (prerequisitesMet) {
+      this.statusLabel
+        .setText(`${this.definition.displayName}\n${this.definition.cost} МОНЕТ`)
+        .setColor('#4f3300')
+        .setBackgroundColor('#fff4cdeb');
+      return;
+    }
+
+    this.statusLabel
+      .setText(
+        `${this.definition.displayName}\n${this.definition.prerequisiteHint ?? 'УСЛОВИЯ НЕ ВЫПОЛНЕНЫ'}`,
+      )
+      .setColor('#4c5260')
+      .setBackgroundColor('#eef1f4e8');
   }
 
   public unlock(animate: boolean): void {

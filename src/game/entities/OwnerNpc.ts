@@ -48,6 +48,8 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setCircle(19, 7, 10);
+    this.shadow.setDepth(home.y - 2);
+    this.setDepth(home.y);
   }
 
   public getState(): OwnerState {

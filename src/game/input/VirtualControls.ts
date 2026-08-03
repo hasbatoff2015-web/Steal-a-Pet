@@ -19,12 +19,16 @@ export class VirtualControls {
   private readonly interactLabel: Phaser.GameObjects.Text;
 
   private joystickPointerId: number | null = null;
-  private dashReadyRatio = 1;
+  private dashRechargeRatio = 1;
+  private dashCharges = 1;
+  private maxDashCharges = 1;
   private dashRequested = false;
   private interactRequested = false;
   private lastInteractionLabel = 'УКРАСТЬ';
   private lastInteractionVisible: boolean | null = null;
   private lastDashVisualStep = -1;
+  private lastDashCharges = -1;
+  private lastMaxDashCharges = -1;
 
   public constructor(private readonly scene: Phaser.Scene) {
     const search = new URLSearchParams(window.location.search);
@@ -130,8 +134,14 @@ export class VirtualControls {
     }
   }
 
-  public setDashReadyRatio(ratio: number): void {
-    this.dashReadyRatio = Phaser.Math.Clamp(ratio, 0, 1);
+  public setDashState(
+    charges: number,
+    maxCharges: number,
+    rechargeRatio: number,
+  ): void {
+    this.dashCharges = Math.max(0, Math.floor(charges));
+    this.maxDashCharges = Math.max(1, Math.floor(maxCharges));
+    this.dashRechargeRatio = Phaser.Math.Clamp(rechargeRatio, 0, 1);
     if (!this.isMobileMode) {
       return;
     }
@@ -171,7 +181,7 @@ export class VirtualControls {
   }
 
   private handleDashDown(): void {
-    if (this.dashReadyRatio < 1) {
+    if (this.dashCharges <= 0) {
       return;
     }
 
@@ -249,16 +259,30 @@ export class VirtualControls {
       return;
     }
 
-    const ready = this.dashReadyRatio >= 1;
-    const visualStep = ready
+    const ready = this.dashCharges > 0;
+    const fullyCharged = this.dashCharges >= this.maxDashCharges;
+    const visualStep = fullyCharged
       ? DASH_VISUAL_STEPS
-      : Math.floor(this.dashReadyRatio * DASH_VISUAL_STEPS);
-    if (!force && visualStep === this.lastDashVisualStep) {
+      : Math.floor(this.dashRechargeRatio * DASH_VISUAL_STEPS);
+    if (
+      !force &&
+      visualStep === this.lastDashVisualStep &&
+      this.dashCharges === this.lastDashCharges &&
+      this.maxDashCharges === this.lastMaxDashCharges
+    ) {
       return;
     }
 
     this.lastDashVisualStep = visualStep;
+    this.lastDashCharges = this.dashCharges;
+    this.lastMaxDashCharges = this.maxDashCharges;
     const visualRatio = visualStep / DASH_VISUAL_STEPS;
+
+    this.dashLabel.setText(
+      this.maxDashCharges > 1
+        ? `РЫВОК\n${this.dashCharges}/${this.maxDashCharges}`
+        : `РЫВОК\n${this.dashCharges}`,
+    );
 
     this.dashButton
       .setFillStyle(ready ? 0x4e8fe8 : 0x20384e, ready ? 0.82 : 0.72)
@@ -266,7 +290,7 @@ export class VirtualControls {
     this.dashLabel.setAlpha(ready ? 1 : 0.58);
 
     this.dashCooldownRing.clear();
-    if (!ready) {
+    if (!fullyCharged) {
       this.dashCooldownRing.lineStyle(7, 0x77c9ff, 0.94);
       this.dashCooldownRing.beginPath();
       this.dashCooldownRing.arc(

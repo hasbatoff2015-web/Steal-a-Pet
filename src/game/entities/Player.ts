@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { PLAYER_CONFIG } from '../config/gameplay';
+import { DashChargeController } from '../systems/DashChargeController';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly shadow: Phaser.GameObjects.Ellipse;
@@ -9,9 +10,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly dashDirection = new Phaser.Math.Vector2(0, -1);
 
   private dashEndsAt = 0;
-  private dashAvailableAt = 0;
   private nextTrailAt = 0;
-  private dashCooldownMs: number = PLAYER_CONFIG.dashCooldownMs;
+  private readonly dashCharges = new DashChargeController(
+    PLAYER_CONFIG.dashCooldownMs,
+  );
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -35,14 +37,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     movement: Phaser.Math.Vector2,
     dashPressed: boolean,
   ): void {
+    this.dashCharges.update(time);
+
     if (movement.lengthSq() > 0) {
       this.lastDirection.copy(movement).normalize();
     }
 
-    if (dashPressed && time >= this.dashAvailableAt) {
+    if (
+      dashPressed &&
+      this.dashCharges.tryConsume(time, time >= this.dashEndsAt)
+    ) {
       this.dashDirection.copy(this.lastDirection);
       this.dashEndsAt = time + PLAYER_CONFIG.dashDurationMs;
-      this.dashAvailableAt = time + this.dashCooldownMs;
       this.nextTrailAt = time;
     }
 
@@ -70,31 +76,31 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   public getDashReadyRatio(time: number): number {
-    if (time >= this.dashAvailableAt) {
-      return 1;
-    }
+    return this.getDashRechargeRatio(time);
+  }
 
-    return Phaser.Math.Clamp(
-      1 - (this.dashAvailableAt - time) / this.dashCooldownMs,
-      0,
-      1,
-    );
+  public getDashRechargeRatio(time: number): number {
+    return this.dashCharges.getRechargeRatio(time);
   }
 
   public setDashCooldownMs(cooldownMs: number): void {
-    const nextCooldownMs = Math.max(1, cooldownMs);
-    const now = this.scene.time.now;
-    const remainingMs = Math.max(0, this.dashAvailableAt - now);
-    const elapsedMs = Math.max(0, this.dashCooldownMs - remainingMs);
+    this.dashCharges.setCooldownMs(cooldownMs, this.scene.time.now);
+  }
 
-    this.dashCooldownMs = nextCooldownMs;
-    if (remainingMs > 0) {
-      this.dashAvailableAt = now + Math.max(0, nextCooldownMs - elapsedMs);
-    }
+  public setMaxDashCharges(maxCharges: number): void {
+    this.dashCharges.setMaxCharges(maxCharges, this.scene.time.now);
   }
 
   public getDashCooldownMs(): number {
-    return this.dashCooldownMs;
+    return this.dashCharges.getCooldownMs();
+  }
+
+  public getDashCharges(): number {
+    return this.dashCharges.getCharges();
+  }
+
+  public getMaxDashCharges(): number {
+    return this.dashCharges.getMaxCharges();
   }
 
   public applyCaughtFeedback(ownerPosition: Phaser.Math.Vector2): void {

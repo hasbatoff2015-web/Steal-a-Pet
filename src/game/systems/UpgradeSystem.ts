@@ -1,6 +1,10 @@
+import type { PetId } from '../data/pets';
 import {
+  areUpgradePrerequisitesMet,
   getUpgradeDefinition,
+  UPGRADE_DEFINITIONS,
   UpgradeEffectId,
+  type UpgradeDefinition,
   type UpgradeId,
 } from '../data/upgrades';
 import type { EconomySystem } from './EconomySystem';
@@ -8,16 +12,42 @@ import type { EconomySystem } from './EconomySystem';
 export enum UpgradePurchaseResult {
   Purchased = 'PURCHASED',
   InsufficientFunds = 'INSUFFICIENT_FUNDS',
+  PrerequisitesNotMet = 'PREREQUISITES_NOT_MET',
   AlreadyPurchased = 'ALREADY_PURCHASED',
 }
 
+export enum UpgradeStationStateKind {
+  Locked = 'LOCKED',
+  Available = 'AVAILABLE',
+  Complete = 'COMPLETE',
+}
+
+export type UpgradeStationState =
+  | {
+      readonly kind: UpgradeStationStateKind.Locked;
+      readonly label: string;
+    }
+  | {
+      readonly kind: UpgradeStationStateKind.Available;
+      readonly definition: UpgradeDefinition;
+    }
+  | {
+      readonly kind: UpgradeStationStateKind.Complete;
+    };
+
 export interface UpgradeEffectTarget {
   setDashCooldownMs(cooldownMs: number): void;
+  setMaxDashCharges(maxCharges: number): void;
+}
+
+export interface UpgradePrerequisiteContext {
+  isPetDelivered(petId: PetId): boolean;
 }
 
 export class UpgradeSystem {
   private readonly purchasedUpgradeIds = new Set<UpgradeId>();
   private effectTarget: UpgradeEffectTarget | null = null;
+  private prerequisiteContext: UpgradePrerequisiteContext | null = null;
 
   public constructor(
     private readonly economy: EconomySystem,
@@ -26,6 +56,10 @@ export class UpgradeSystem {
     for (const upgradeId of purchasedUpgradeIds) {
       this.purchasedUpgradeIds.add(upgradeId);
     }
+  }
+
+  public connectPrerequisiteContext(context: UpgradePrerequisiteContext): void {
+    this.prerequisiteContext = context;
   }
 
   public connectEffectTarget(target: UpgradeEffectTarget): void {
@@ -39,6 +73,9 @@ export class UpgradeSystem {
     if (this.isPurchased(upgradeId)) {
       return UpgradePurchaseResult.AlreadyPurchased;
     }
+    if (!this.arePrerequisitesMet(upgradeId)) {
+      return UpgradePurchaseResult.PrerequisitesNotMet;
+    }
 
     const definition = getUpgradeDefinition(upgradeId);
     if (!this.economy.spend(definition.cost)) {
@@ -48,6 +85,38 @@ export class UpgradeSystem {
     this.purchasedUpgradeIds.add(upgradeId);
     this.applyEffect(upgradeId);
     return UpgradePurchaseResult.Purchased;
+  }
+
+  public arePrerequisitesMet(upgradeId: UpgradeId): boolean {
+    const context = this.prerequisiteContext;
+    if (context === null) {
+      return false;
+    }
+
+    return areUpgradePrerequisitesMet(getUpgradeDefinition(upgradeId), {
+      isPetDelivered: (petId) => context.isPetDelivered(petId),
+      isUpgradePurchased: (candidateId) =>
+        this.purchasedUpgradeIds.has(candidateId as UpgradeId),
+    });
+  }
+
+  public getStationState(): UpgradeStationState {
+    const nextUpgrade = Object.values(UPGRADE_DEFINITIONS).find(
+      (definition) => !this.isPurchased(definition.id),
+    );
+    if (nextUpgrade === undefined) {
+      return { kind: UpgradeStationStateKind.Complete };
+    }
+    if (!this.arePrerequisitesMet(nextUpgrade.id)) {
+      return {
+        kind: UpgradeStationStateKind.Locked,
+        label: nextUpgrade.lockedLabel,
+      };
+    }
+    return {
+      kind: UpgradeStationStateKind.Available,
+      definition: nextUpgrade,
+    };
   }
 
   public isPurchased(upgradeId: UpgradeId): boolean {
@@ -67,6 +136,9 @@ export class UpgradeSystem {
     switch (definition.effectId) {
       case UpgradeEffectId.DashCooldownMs:
         this.effectTarget.setDashCooldownMs(definition.effectValue);
+        break;
+      case UpgradeEffectId.MaxDashCharges:
+        this.effectTarget.setMaxDashCharges(definition.effectValue);
         break;
     }
   }

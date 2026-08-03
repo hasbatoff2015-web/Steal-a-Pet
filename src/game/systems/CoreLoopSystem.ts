@@ -1,12 +1,17 @@
 import Phaser from 'phaser';
 
 import { PET_CONFIG } from '../config/gameplay';
-import { FAST_DASH_UPGRADE } from '../data/upgrades';
+import {
+  DOUBLE_DASH_UPGRADE,
+  getUpgradeDefinition,
+  type UpgradeId,
+} from '../data/upgrades';
 import { Player } from '../entities/Player';
 import { InputController } from '../input/InputController';
 import { Hud } from '../ui/Hud';
 import type { ZoneGate } from '../world/ZoneGate';
 import type { UpgradeStation } from '../world/UpgradeStation';
+import type { VipEstatePreview } from '../world/VipEstatePreview';
 import { BaseSystem } from './BaseSystem';
 import { EconomySystem } from './EconomySystem';
 import { PetEncounter } from './PetEncounter';
@@ -25,6 +30,9 @@ interface NavigationMarkers {
   cat: Phaser.GameObjects.Container;
   centralHub: Phaser.GameObjects.Container;
   fox: Phaser.GameObjects.Container;
+  richDistrict: Phaser.GameObjects.Container;
+  peacock: Phaser.GameObjects.Container;
+  panda: Phaser.GameObjects.Container;
   upgrade: Phaser.GameObjects.Container;
 }
 
@@ -38,6 +46,7 @@ interface CoreLoopDependencies {
   progression: ProgressionSystem;
   upgradeSystem: UpgradeSystem;
   upgradeStation: UpgradeStation;
+  vipEstatePreview: VipEstatePreview;
   pathHistory: PlayerPathHistory;
   hud: Hud;
   input: InputController;
@@ -55,6 +64,7 @@ export class CoreLoopSystem {
   private readonly progression: ProgressionSystem;
   private readonly upgradeSystem: UpgradeSystem;
   private readonly upgradeStation: UpgradeStation;
+  private readonly vipEstatePreview: VipEstatePreview;
   private readonly pathHistory: PlayerPathHistory;
   private readonly hud: Hud;
   private readonly input: InputController;
@@ -62,6 +72,8 @@ export class CoreLoopSystem {
   private readonly onProgressChanged: () => void;
   private readonly catEncounter: PetEncounter | undefined;
   private readonly foxEncounter: PetEncounter | undefined;
+  private readonly peacockEncounter: PetEncounter | undefined;
+  private readonly pandaEncounter: PetEncounter | undefined;
 
   private activeEncounter: PetEncounter | null = null;
   private retryAvailableAt = 0;
@@ -70,6 +82,9 @@ export class CoreLoopSystem {
   private catMarkerVisible = false;
   private centralHubMarkerVisible = false;
   private foxMarkerVisible = false;
+  private richDistrictMarkerVisible = false;
+  private peacockMarkerVisible = false;
+  private pandaMarkerVisible = false;
   private upgradeMarkerVisible = false;
   private cachedBaseObjective = '';
   private cachedObjectiveStage: ProgressionStage | null = null;
@@ -85,6 +100,7 @@ export class CoreLoopSystem {
     this.progression = dependencies.progression;
     this.upgradeSystem = dependencies.upgradeSystem;
     this.upgradeStation = dependencies.upgradeStation;
+    this.vipEstatePreview = dependencies.vipEstatePreview;
     this.pathHistory = dependencies.pathHistory;
     this.hud = dependencies.hud;
     this.input = dependencies.input;
@@ -96,14 +112,30 @@ export class CoreLoopSystem {
     this.foxEncounter = this.encounters.find(
       (encounter) => encounter.pet.petId === 'fox',
     );
+    this.peacockEncounter = this.encounters.find(
+      (encounter) => encounter.pet.petId === 'peacock',
+    );
+    this.pandaEncounter = this.encounters.find(
+      (encounter) => encounter.pet.petId === 'panda',
+    );
   }
 
   public update(time: number, delta: number, interactPressed: boolean): void {
     for (const encounter of this.encounters) {
       encounter.update(time, delta, this.player, this.pathHistory);
+      const activatedPursuerId = encounter.consumeActivatedPursuerId();
+      if (activatedPursuerId !== null && encounter === this.activeEncounter) {
+        this.hud.showToast('СРАБОТАЛА СИГНАЛИЗАЦИЯ!', 1500);
+        this.scene.cameras.main.flash(150, 220, 45, 55, false);
+      }
     }
 
     this.progression.updateForMoney(this.economy.getMoney());
+    this.gateSystem.refreshPrerequisiteStates();
+    this.upgradeStation.setState(this.upgradeSystem.getStationState());
+    this.vipEstatePreview.setRichDistrictComplete(
+      this.upgradeSystem.isPurchased(DOUBLE_DASH_UPGRADE.id),
+    );
 
     if (this.activeEncounter === null) {
       this.updateExploration(time, interactPressed);
@@ -125,27 +157,34 @@ export class CoreLoopSystem {
     return this.activeEncounter?.definition.id ?? 'none';
   }
 
+  public completeActiveTheftForDevelopment(): boolean {
+    if (this.activeEncounter === null) {
+      return false;
+    }
+
+    this.completeDelivery(this.activeEncounter);
+    return true;
+  }
+
   private updateExploration(time: number, interactPressed: boolean): void {
-    const upgradeAvailable = this.progression.isPetDelivered('fox');
-    const upgradePurchased = this.upgradeSystem.isPurchased(FAST_DASH_UPGRADE.id);
-    this.upgradeStation.setState(upgradeAvailable, upgradePurchased);
+    const availableUpgradeId = this.upgradeStation.getAvailableUpgradeId();
     if (
-      upgradeAvailable &&
-      !upgradePurchased &&
+      availableUpgradeId !== null &&
       this.upgradeStation.isPlayerNearby(this.player)
     ) {
-      this.objective = this.economy.canAfford(FAST_DASH_UPGRADE.cost)
-        ? `Купи улучшение «Быстрый рывок»`
-        : `Нужно ${FAST_DASH_UPGRADE.cost} монет`;
+      const upgrade = getUpgradeDefinition(availableUpgradeId);
+      this.objective = this.economy.canAfford(upgrade.cost)
+        ? `Купи улучшение «${this.getUpgradeDisplayTitle(availableUpgradeId)}»`
+        : `Нужно ${upgrade.cost} монет`;
       this.setInteraction(
         true,
         'УЛУЧШИТЬ',
-        `E — УЛУЧШИТЬ РЫВОК ЗА ${FAST_DASH_UPGRADE.cost}`,
-        'УЛУЧШИТЬ РЫВОК',
+        `E — КУПИТЬ ${upgrade.displayName} ЗА ${upgrade.cost}`,
+        `КУПИТЬ ${upgrade.displayName}`,
       );
 
       if (interactPressed) {
-        this.tryPurchaseFastDash();
+        this.tryPurchaseUpgrade(availableUpgradeId);
       }
       return;
     }
@@ -175,7 +214,7 @@ export class CoreLoopSystem {
     );
 
     if (nearbyEncounter !== undefined) {
-      if (!nearbyEncounter.chase.isOwnerReady() || time < this.retryAvailableAt) {
+      if (!nearbyEncounter.arePursuersReady() || time < this.retryAvailableAt) {
         this.objective = 'Хозяин возвращается · приготовься к новой попытке';
         this.setInteraction(false);
         return;
@@ -221,18 +260,22 @@ export class CoreLoopSystem {
       return;
     }
 
-    if (time >= this.retryAvailableAt && encounter.chase.hasCaught(this.player)) {
-      this.failTheft(encounter, time);
+    const catchingPursuer =
+      time >= this.retryAvailableAt
+        ? encounter.findCatchingPursuer(this.player)
+        : null;
+    if (catchingPursuer !== null) {
+      this.failTheft(encounter, catchingPursuer.owner, time);
     }
   }
 
   private startTheft(encounter: PetEncounter): void {
     this.activeEncounter = encounter;
     this.pathHistory.reset(this.player);
-    encounter.startTheft();
+    encounter.startTheft(this.scene.time.now);
     this.progression.startTheft(encounter.pet.petId, this.economy.getMoney());
     this.retryAvailableAt =
-      this.scene.time.now + encounter.definition.chase.theftHeadStartMs;
+      this.scene.time.now + encounter.getTheftHeadStartMs();
     this.hud.showToast(
       `${encounter.pet.displayName.toUpperCase()} УКРАДЕН! БЕГИ ДОМОЙ!`,
       1500,
@@ -241,13 +284,17 @@ export class CoreLoopSystem {
     this.setInteraction(false);
   }
 
-  private failTheft(encounter: PetEncounter, time: number): void {
-    this.retryAvailableAt = time + encounter.definition.chase.failureGraceMs;
+  private failTheft(
+    encounter: PetEncounter,
+    catchingOwner: Phaser.Types.Math.Vector2Like,
+    time: number,
+  ): void {
+    this.retryAvailableAt = time + encounter.getFailureGraceMs();
     encounter.failTheft();
     this.progression.cancelTheft(this.economy.getMoney());
     this.activeEncounter = null;
     this.player.applyCaughtFeedback(
-      new Phaser.Math.Vector2(encounter.owner.x, encounter.owner.y),
+      new Phaser.Math.Vector2(catchingOwner.x, catchingOwner.y),
     );
     this.hud.showToast(
       `ПОЙМАЛИ! ${encounter.pet.displayName} вернулся домой`,
@@ -268,7 +315,15 @@ export class CoreLoopSystem {
     this.activeEncounter = null;
     this.onProgressChanged();
 
-    if (encounter.pet.petId === 'fox') {
+    if (encounter.pet.petId === 'peacock' || encounter.pet.petId === 'panda') {
+      const richDelivered = this.progression.getRichPetDeliveryCount();
+      this.hud.showToast(
+        richDelivered >= 2
+          ? 'RICH DISTRICT ЗАВЕРШЁН! Двойной рывок ждёт на базе'
+          : `${encounter.pet.displayName} на базе! Остался ещё один питомец`,
+        2800,
+      );
+    } else if (encounter.pet.petId === 'fox') {
       this.hud.showToast('CENTRAL HUB ЗАВЕРШЁН! Улучшение ждёт на базе', 2800);
     } else if (encounter.pet.petId === 'cat') {
       this.hud.showToast('PARK ЗАВЕРШЁН! Следующая цель: CENTRAL HUB', 2600);
@@ -293,17 +348,23 @@ export class CoreLoopSystem {
     }
   }
 
-  private tryPurchaseFastDash(): void {
-    const result = this.upgradeSystem.tryPurchase(FAST_DASH_UPGRADE.id);
+  private tryPurchaseUpgrade(upgradeId: UpgradeId): void {
+    const upgrade = getUpgradeDefinition(upgradeId);
+    const result = this.upgradeSystem.tryPurchase(upgradeId);
     if (result === UpgradePurchaseResult.InsufficientFunds) {
-      this.hud.showToast(`Нужно ${FAST_DASH_UPGRADE.cost} монет`, 1400);
+      this.hud.showToast(`Нужно ${upgrade.cost} монет`, 1400);
       return;
     }
 
     if (result === UpgradePurchaseResult.Purchased) {
       this.progression.notifyUpgradePurchased(this.economy.getMoney());
-      this.upgradeStation.setState(true, true);
-      this.hud.showToast('БЫСТРЫЙ РЫВОК! Перезарядка теперь 650 мс', 2600);
+      this.upgradeStation.setState(this.upgradeSystem.getStationState());
+      this.hud.showToast(
+        upgradeId === DOUBLE_DASH_UPGRADE.id
+          ? 'ДВОЙНОЙ РЫВОК! Теперь доступны два заряда'
+          : 'БЫСТРЫЙ РЫВОК! Перезарядка теперь 650 мс',
+        2600,
+      );
       this.onProgressChanged();
       this.setInteraction(false);
       this.scene.cameras.main.flash(180, 118, 230, 155, false);
@@ -327,20 +388,10 @@ export class CoreLoopSystem {
     const stage = this.progression.getStage();
     const catEncounter = this.catEncounter;
     const foxEncounter = this.foxEncounter;
-    const distanceX =
-      catEncounter === undefined ? 0 : this.player.x - catEncounter.pet.x;
-    const distanceY =
-      catEncounter === undefined ? 0 : this.player.y - catEncounter.pet.y;
     const closeToCat =
-      catEncounter !== undefined &&
-      distanceX * distanceX + distanceY * distanceY < 220 * 220;
-    const foxDistanceX =
-      foxEncounter === undefined ? 0 : this.player.x - foxEncounter.pet.x;
-    const foxDistanceY =
-      foxEncounter === undefined ? 0 : this.player.y - foxEncounter.pet.y;
+      catEncounter !== undefined && this.isPlayerCloseToEncounter(catEncounter);
     const closeToFox =
-      foxEncounter !== undefined &&
-      foxDistanceX * foxDistanceX + foxDistanceY * foxDistanceY < 220 * 220;
+      foxEncounter !== undefined && this.isPlayerCloseToEncounter(foxEncounter);
     const parkVisible =
       stage === ProgressionStage.EarnForPark ||
       stage === ProgressionStage.UnlockPark;
@@ -349,9 +400,24 @@ export class CoreLoopSystem {
       stage === ProgressionStage.EarnForCentralHub ||
       stage === ProgressionStage.UnlockCentralHub;
     const foxVisible = stage === ProgressionStage.StealHubPet && !closeToFox;
+    const richDistrictVisible =
+      stage === ProgressionStage.EarnForRichDistrict ||
+      stage === ProgressionStage.UnlockRichDistrict;
+    const peacockVisible =
+      stage === ProgressionStage.StealRichPets &&
+      !this.progression.isPetDelivered('peacock') &&
+      this.peacockEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(this.peacockEncounter);
+    const pandaVisible =
+      stage === ProgressionStage.StealRichPets &&
+      !this.progression.isPetDelivered('panda') &&
+      this.pandaEncounter !== undefined &&
+      !this.isPlayerCloseToEncounter(this.pandaEncounter);
     const upgradeVisible =
       stage === ProgressionStage.EarnForDashUpgrade ||
-      stage === ProgressionStage.BuyDashUpgrade;
+      stage === ProgressionStage.BuyDashUpgrade ||
+      stage === ProgressionStage.EarnForDoubleDash ||
+      stage === ProgressionStage.BuyDoubleDash;
 
     if (parkVisible !== this.parkMarkerVisible) {
       this.parkMarkerVisible = parkVisible;
@@ -369,10 +435,34 @@ export class CoreLoopSystem {
       this.foxMarkerVisible = foxVisible;
       this.navigationMarkers.fox.setVisible(foxVisible);
     }
+    if (richDistrictVisible !== this.richDistrictMarkerVisible) {
+      this.richDistrictMarkerVisible = richDistrictVisible;
+      this.navigationMarkers.richDistrict.setVisible(richDistrictVisible);
+    }
+    if (peacockVisible !== this.peacockMarkerVisible) {
+      this.peacockMarkerVisible = peacockVisible;
+      this.navigationMarkers.peacock.setVisible(peacockVisible);
+    }
+    if (pandaVisible !== this.pandaMarkerVisible) {
+      this.pandaMarkerVisible = pandaVisible;
+      this.navigationMarkers.panda.setVisible(pandaVisible);
+    }
     if (upgradeVisible !== this.upgradeMarkerVisible) {
       this.upgradeMarkerVisible = upgradeVisible;
       this.navigationMarkers.upgrade.setVisible(upgradeVisible);
     }
+  }
+
+  private isPlayerCloseToEncounter(encounter: PetEncounter): boolean {
+    const distanceX = this.player.x - encounter.pet.x;
+    const distanceY = this.player.y - encounter.pet.y;
+    return distanceX * distanceX + distanceY * distanceY < 220 * 220;
+  }
+
+  private getUpgradeDisplayTitle(upgradeId: UpgradeId): string {
+    return upgradeId === DOUBLE_DASH_UPGRADE.id
+      ? 'Двойной рывок'
+      : 'Быстрый рывок';
   }
 
   private getBaseObjective(): string {

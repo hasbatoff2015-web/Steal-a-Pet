@@ -3,7 +3,6 @@ import Phaser from 'phaser';
 import { PET_CONFIG, WORLD } from '../config/gameplay';
 import { PET_ENCOUNTER_DEFINITIONS } from '../data/encounters';
 import { getPetDefinition, type PetId } from '../data/pets';
-import { FAST_DASH_UPGRADE } from '../data/upgrades';
 import { ZoneId } from '../data/zones';
 import { OwnerState } from '../entities/OwnerNpc';
 import { OwnerNpc } from '../entities/OwnerNpc';
@@ -57,19 +56,19 @@ export class WorldScene extends Phaser.Scene {
       savedGame.purchasedUpgradeIds,
     );
     this.progression = new ProgressionSystem(
-      () => this.upgradeSystem.isPurchased(FAST_DASH_UPGRADE.id),
+      (upgradeId) => this.upgradeSystem.isPurchased(upgradeId),
       {
         deliveredPetIds: savedGame.deliveredPetIds,
         unlockedZones: savedGame.unlockedZones,
       },
     );
+    this.upgradeSystem.connectPrerequisiteContext(this.progression);
     this.progression.updateForMoney(this.economy.getMoney());
 
     this.world = new WorldBuilder(this).build(
       this.progression.isZoneUnlocked(ZoneId.Park),
       this.progression.isZoneUnlocked(ZoneId.CentralHub),
-      this.progression.isPetDelivered('fox'),
-      this.upgradeSystem.isPurchased(FAST_DASH_UPGRADE.id),
+      this.progression.isZoneUnlocked(ZoneId.RichDistrict),
     );
     this.player = new Player(
       this,
@@ -91,9 +90,14 @@ export class WorldScene extends Phaser.Scene {
     );
     this.encounters = this.createEncounters(baseSystem);
     const gateSystem = new ZoneGateSystem(
-      [this.world.parkGate, this.world.centralHubGate],
+      [
+        this.world.parkGate,
+        this.world.centralHubGate,
+        this.world.richDistrictGate,
+      ],
       this.economy,
       this.progression,
+      this.upgradeSystem,
     );
 
     this.coreLoop = new CoreLoopSystem({
@@ -106,6 +110,7 @@ export class WorldScene extends Phaser.Scene {
       progression: this.progression,
       upgradeSystem: this.upgradeSystem,
       upgradeStation: this.world.upgradeStation,
+      vipEstatePreview: this.world.vipEstatePreview,
       pathHistory: this.pathHistory,
       hud: this.hud,
       input: this.inputController,
@@ -114,6 +119,9 @@ export class WorldScene extends Phaser.Scene {
         cat: this.world.catNavigationMarkerView,
         centralHub: this.world.centralHubMarkerView,
         fox: this.world.foxNavigationMarkerView,
+        richDistrict: this.world.richDistrictNavigationMarkerView,
+        peacock: this.world.peacockNavigationMarkerView,
+        panda: this.world.pandaNavigationMarkerView,
         upgrade: this.world.upgradeNavigationMarkerView,
       },
       onProgressChanged: () => this.persistProgress(),
@@ -162,12 +170,20 @@ export class WorldScene extends Phaser.Scene {
       this.economy.getDisplayedMoney(),
       this.economy.getIncomePerSecond(),
     );
-    const dashReadyRatio = this.player.getDashReadyRatio(time);
-    this.hud.setDashReadyRatio(
-      dashReadyRatio,
+    const dashRechargeRatio = this.player.getDashRechargeRatio(time);
+    const dashCharges = this.player.getDashCharges();
+    const maxDashCharges = this.player.getMaxDashCharges();
+    this.hud.setDashState(
+      dashCharges,
+      maxDashCharges,
+      dashRechargeRatio,
       this.inputController.isMobileMode,
     );
-    this.inputController.setDashReadyRatio(dashReadyRatio);
+    this.inputController.setDashState(
+      dashCharges,
+      maxDashCharges,
+      dashRechargeRatio,
+    );
 
     if (frameInput.debugPressed) {
       this.hud.toggleDebug();
@@ -181,7 +197,11 @@ export class WorldScene extends Phaser.Scene {
           .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
           .join(' '),
         chaseState: this.encounters
-          .map((encounter) => `${encounter.definition.id}:${encounter.chase.getState()}`)
+          .flatMap((encounter) =>
+            encounter.pursuers.map(
+              (pursuer) => `${pursuer.definition.id}:${pursuer.chase.getState()}`,
+            ),
+          )
           .join(' '),
       });
     }
@@ -196,19 +216,25 @@ export class WorldScene extends Phaser.Scene {
         definition.petHome.y,
         petDefinition,
       );
-      const ownerHome = new Phaser.Math.Vector2(
-        definition.ownerHome.x,
-        definition.ownerHome.y,
-      );
-      const owner = new OwnerNpc(
-        this,
-        ownerHome,
-        definition.ownerVisualKey,
-        definition.chase,
-        definition.returnRoutes,
-      );
-      const chase = new ChaseSystem(owner, definition.chase);
-      const encounter = new PetEncounter(definition, pet, owner, chase);
+      const pursuers = definition.pursuers.map((pursuerDefinition) => {
+        const owner = new OwnerNpc(
+          this,
+          new Phaser.Math.Vector2(
+            pursuerDefinition.home.x,
+            pursuerDefinition.home.y,
+          ),
+          pursuerDefinition.visualKey,
+          pursuerDefinition.chase,
+          pursuerDefinition.returnRoutes,
+        );
+        return {
+          definition: pursuerDefinition,
+          owner,
+          chase: new ChaseSystem(owner, pursuerDefinition.chase),
+          activated: false,
+        };
+      });
+      const encounter = new PetEncounter(definition, pet, pursuers);
 
       if (this.progression.isPetDelivered(definition.petId)) {
         pet.placeAtPlayerBase(baseSystem.getPetSlot(definition.petId));
@@ -225,7 +251,9 @@ export class WorldScene extends Phaser.Scene {
   private configurePhysics(): void {
     this.physics.add.collider(this.player, this.world.obstacles);
     for (const encounter of this.encounters) {
-      this.physics.add.collider(encounter.owner, this.world.obstacles);
+      for (const pursuer of encounter.pursuers) {
+        this.physics.add.collider(pursuer.owner, this.world.obstacles);
+      }
     }
   }
 
@@ -261,12 +289,19 @@ export class WorldScene extends Phaser.Scene {
           this.world.centralHubGateInteractionPoint.x,
           this.world.centralHubGateInteractionPoint.y,
         ),
+      toRichDistrictGate: () =>
+        this.player.setPosition(
+          this.world.richDistrictGateInteractionPoint.x,
+          this.world.richDistrictGateInteractionPoint.y,
+        ),
       toUpgradeStation: () =>
         this.player.setPosition(
           this.world.upgradeStationPosition.x,
           this.world.upgradeStationPosition.y + 72,
         ),
-      catchActive: () => this.teleportActiveOwnerToPlayer(),
+      catchActive: (pursuerIndex) =>
+        this.teleportActivePursuerToPlayer(pursuerIndex),
+      deliverActive: () => this.coreLoop.completeActiveTheftForDevelopment(),
       cycleCatReturnTestPosition: () => this.cycleCatReturnTestPosition(),
       addMoney: (amount) => this.economy.addMoney(amount),
       resetMoney: () => this.economy.spend(this.economy.getMoney()),
@@ -288,11 +323,15 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private teleportActiveOwnerToPlayer(): void {
+  private teleportActivePursuerToPlayer(pursuerIndex: number): void {
+    const activeEncounterId = this.coreLoop.getActiveEncounterId();
     const activeEncounter = this.encounters.find(
-      (encounter) => encounter.owner.getState() === OwnerState.Chasing,
+      (encounter) => encounter.definition.id === activeEncounterId,
     );
-    activeEncounter?.owner.setPosition(this.player.x, this.player.y);
+    const pursuer = activeEncounter?.pursuers[pursuerIndex];
+    if (pursuer?.owner.getState() === OwnerState.Chasing) {
+      pursuer.owner.setPosition(this.player.x, this.player.y);
+    }
   }
 
   private cycleCatReturnTestPosition(): void {
@@ -323,13 +362,19 @@ export class WorldScene extends Phaser.Scene {
       `pos=${this.player.x.toFixed(0)},${this.player.y.toFixed(0)}`,
       `park=${this.progression.isZoneUnlocked(ZoneId.Park)}`,
       `hub=${this.progression.isZoneUnlocked(ZoneId.CentralHub)}`,
+      `rich=${this.progression.isZoneUnlocked(ZoneId.RichDistrict)}`,
       `dashCd=${this.player.getDashCooldownMs()}`,
+      `dash=${this.player.getDashCharges()}/${this.player.getMaxDashCharges()}`,
       `upgrades=${this.upgradeSystem.getPurchasedUpgradeIds().join(',') || 'none'}`,
       `pets=${this.encounters
         .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
         .join(',')}`,
       `owners=${this.encounters
-        .map((encounter) => `${encounter.pet.petId}:${encounter.owner.getState()}`)
+        .flatMap((encounter) =>
+          encounter.pursuers.map(
+            (pursuer) => `${pursuer.definition.id}:${pursuer.owner.getState()}`,
+          ),
+        )
         .join(',')}`,
     ].join(' · ');
   }

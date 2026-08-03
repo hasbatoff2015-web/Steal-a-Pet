@@ -32,11 +32,53 @@ export interface GameSaveData {
   readonly purchasedUpgradeIds: readonly UpgradeId[];
 }
 
+export function isValidGameSaveData(value: unknown): value is GameSaveData {
+  if (!isRecord(value) || value.saveVersion !== SAVE_VERSION) {
+    return false;
+  }
+
+  const structurallyValid =
+    isValidMoney(value.money) &&
+    Array.isArray(value.deliveredPetIds) &&
+    value.deliveredPetIds.every((petId) => isPetId(petId)) &&
+    Array.isArray(value.unlockedZones) &&
+    value.unlockedZones.every((zoneId) => isZoneId(zoneId)) &&
+    value.unlockedZones.includes(ZoneId.StarterSuburb) &&
+    Array.isArray(value.purchasedUpgradeIds) &&
+    value.purchasedUpgradeIds.every((upgradeId) => isUpgradeId(upgradeId));
+  if (!structurallyValid) {
+    return false;
+  }
+
+  const deliveredPetIds = value.deliveredPetIds as readonly PetId[];
+  const unlockedZones = value.unlockedZones as readonly ZoneId[];
+  const purchasedUpgradeIds = value.purchasedUpgradeIds as readonly UpgradeId[];
+  const parkUnlocked = unlockedZones.includes(ZoneId.Park);
+  const hubUnlocked = unlockedZones.includes(ZoneId.CentralHub);
+  const richUnlocked = unlockedZones.includes(ZoneId.RichDistrict);
+  const foxDelivered = deliveredPetIds.includes('fox');
+  const peacockDelivered = deliveredPetIds.includes('peacock');
+  const pandaDelivered = deliveredPetIds.includes('panda');
+  const fastDashPurchased = purchasedUpgradeIds.includes('fast-dash');
+  const doubleDashPurchased = purchasedUpgradeIds.includes('double-dash');
+
+  return !(
+    (hubUnlocked && !parkUnlocked) ||
+    (deliveredPetIds.includes('cat') && !parkUnlocked) ||
+    (foxDelivered && !hubUnlocked) ||
+    (fastDashPurchased && !foxDelivered) ||
+    (richUnlocked && (!hubUnlocked || !foxDelivered || !fastDashPurchased)) ||
+    ((peacockDelivered || pandaDelivered) && !richUnlocked) ||
+    (doubleDashPurchased &&
+      (!fastDashPurchased || !peacockDelivered || !pandaDelivered))
+  );
+}
+
 export class SaveSystem {
   public load(): GameSaveData {
     try {
       const currentSave = this.parse(window.localStorage.getItem(SAVE_KEY_V2));
-      if (this.isValidSaveV2(currentSave)) {
+      if (isValidGameSaveData(currentSave)) {
         return currentSave;
       }
 
@@ -126,50 +168,18 @@ export class SaveSystem {
     return JSON.parse(rawSave) as unknown;
   }
 
-  private isValidSaveV2(value: unknown): value is GameSaveData {
-    if (!this.isRecord(value) || value.saveVersion !== SAVE_VERSION) {
-      return false;
-    }
-
-    const structurallyValid =
-      this.isValidMoney(value.money) &&
-      Array.isArray(value.deliveredPetIds) &&
-      value.deliveredPetIds.every((petId) => this.isPetId(petId)) &&
-      Array.isArray(value.unlockedZones) &&
-      value.unlockedZones.every((zoneId) => this.isZoneId(zoneId)) &&
-      value.unlockedZones.includes(ZoneId.StarterSuburb) &&
-      Array.isArray(value.purchasedUpgradeIds) &&
-      value.purchasedUpgradeIds.every((upgradeId) => this.isUpgradeId(upgradeId));
-    if (!structurallyValid) {
-      return false;
-    }
-
-    const deliveredPetIds = value.deliveredPetIds as readonly PetId[];
-    const unlockedZones = value.unlockedZones as readonly ZoneId[];
-    const purchasedUpgradeIds = value.purchasedUpgradeIds as readonly UpgradeId[];
-    return !(
-      (unlockedZones.includes(ZoneId.CentralHub) &&
-        !unlockedZones.includes(ZoneId.Park)) ||
-      (deliveredPetIds.includes('cat') && !unlockedZones.includes(ZoneId.Park)) ||
-      (deliveredPetIds.includes('fox') &&
-        !unlockedZones.includes(ZoneId.CentralHub)) ||
-      (purchasedUpgradeIds.includes('fast-dash') &&
-        !deliveredPetIds.includes('fox'))
-    );
-  }
-
   private isValidLegacySaveV1(value: unknown): value is LegacyGameSaveDataV1 {
-    if (!this.isRecord(value) || value.saveVersion !== 1) {
+    if (!isRecord(value) || value.saveVersion !== 1) {
       return false;
     }
 
     if (
-      !this.isValidMoney(value.money) ||
+      !isValidMoney(value.money) ||
       typeof value.parkUnlocked !== 'boolean' ||
       !Array.isArray(value.deliveredPetIds) ||
       !value.deliveredPetIds.every((petId) => petId === 'dog' || petId === 'cat') ||
       !Array.isArray(value.unlockedZones) ||
-      !value.unlockedZones.every((zoneId) => this.isZoneId(zoneId)) ||
+      !value.unlockedZones.every((zoneId) => isZoneId(zoneId)) ||
       typeof value.campaignStage !== 'string' ||
       !LEGACY_STAGES.has(value.campaignStage)
     ) {
@@ -179,28 +189,29 @@ export class SaveSystem {
     return value.parkUnlocked === value.unlockedZones.includes(ZoneId.Park);
   }
 
-  private isValidMoney(value: unknown): value is number {
-    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
-  }
+}
 
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-  }
+function isValidMoney(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
 
-  private isPetId(value: unknown): value is PetId {
-    return typeof value === 'string' && value in PET_DEFINITIONS;
-  }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
-  private isUpgradeId(value: unknown): value is UpgradeId {
-    return (
-      typeof value === 'string' &&
-      Object.values(UPGRADE_DEFINITIONS).some(
-        (definition) => definition.id === value,
-      )
-    );
-  }
+function isPetId(value: unknown): value is PetId {
+  return typeof value === 'string' && value in PET_DEFINITIONS;
+}
 
-  private isZoneId(value: unknown): value is ZoneId {
-    return typeof value === 'string' && Object.values(ZoneId).includes(value as ZoneId);
-  }
+function isUpgradeId(value: unknown): value is UpgradeId {
+  return (
+    typeof value === 'string' &&
+    Object.values(UPGRADE_DEFINITIONS).some(
+      (definition) => definition.id === value,
+    )
+  );
+}
+
+function isZoneId(value: unknown): value is ZoneId {
+  return typeof value === 'string' && Object.values(ZoneId).includes(value as ZoneId);
 }

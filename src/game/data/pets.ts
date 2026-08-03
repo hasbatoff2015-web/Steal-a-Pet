@@ -52,6 +52,24 @@ export const PET_DEFINITIONS = {
     zoneId: ZoneId.CentralHub,
     prototypeColor: 0xf28a32,
   },
+  peacock: {
+    id: 'peacock',
+    displayName: 'Павлин',
+    rarity: PetRarity.Rare,
+    incomePerSecond: 10,
+    visualKey: 'peacock',
+    zoneId: ZoneId.RichDistrict,
+    prototypeColor: 0x29a9b8,
+  },
+  panda: {
+    id: 'panda',
+    displayName: 'Панда',
+    rarity: PetRarity.Rare,
+    incomePerSecond: 14,
+    visualKey: 'panda',
+    zoneId: ZoneId.RichDistrict,
+    prototypeColor: 0xf4f1e8,
+  },
 } as const satisfies Readonly<Record<string, PetDefinition>>;
 
 export type PetId = keyof typeof PET_DEFINITIONS;

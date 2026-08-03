@@ -96,8 +96,12 @@ export class InputController {
     this.virtualControls.setInteractionVisible(visible, label);
   }
 
-  public setDashReadyRatio(ratio: number): void {
-    this.virtualControls.setDashReadyRatio(ratio);
+  public setDashState(
+    charges: number,
+    maxCharges: number,
+    rechargeRatio: number,
+  ): void {
+    this.virtualControls.setDashState(charges, maxCharges, rechargeRatio);
   }
 
   public requestDevDash(): void {

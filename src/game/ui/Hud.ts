@@ -31,6 +31,9 @@ export class Hud {
   private lastPromptVisible = false;
   private lastDashVisualStep = -1;
   private lastDashMobileMode: boolean | null = null;
+  private lastDashCharges = -1;
+  private lastMaxDashCharges = -1;
+  private lastDashLabel = '';
   private lastDebugText = '';
   private nextDebugTextAt = 0;
   private nextPerformanceSampleAt = 0;
@@ -169,10 +172,17 @@ export class Hud {
     }
   }
 
-  public setDashReadyRatio(ratio: number, mobileMode: boolean): void {
+  public setDashState(
+    charges: number,
+    maxCharges: number,
+    rechargeRatio: number,
+    mobileMode: boolean,
+  ): void {
     if (mobileMode !== this.lastDashMobileMode) {
       this.lastDashMobileMode = mobileMode;
       this.lastDashVisualStep = -1;
+      this.lastDashCharges = -1;
+      this.lastMaxDashCharges = -1;
       this.dashLabel.setVisible(!mobileMode);
       if (mobileMode) {
         this.dashGraphics.clear();
@@ -183,27 +193,58 @@ export class Hud {
       return;
     }
 
-    const clampedRatio = Phaser.Math.Clamp(ratio, 0, 1);
+    const clampedRatio = Phaser.Math.Clamp(rechargeRatio, 0, 1);
     const visualStep =
       clampedRatio >= 1
         ? DASH_VISUAL_STEPS
         : Math.floor(clampedRatio * DASH_VISUAL_STEPS);
-    if (visualStep === this.lastDashVisualStep) {
+    const safeMaxCharges = Math.max(1, Math.floor(maxCharges));
+    const safeCharges = Phaser.Math.Clamp(Math.floor(charges), 0, safeMaxCharges);
+    if (
+      visualStep === this.lastDashVisualStep &&
+      safeCharges === this.lastDashCharges &&
+      safeMaxCharges === this.lastMaxDashCharges
+    ) {
       return;
     }
 
     this.lastDashVisualStep = visualStep;
+    this.lastDashCharges = safeCharges;
+    this.lastMaxDashCharges = safeMaxCharges;
     const visualRatio = visualStep / DASH_VISUAL_STEPS;
     const width = 126;
     const height = 10;
+    const gap = 6;
+    const segmentWidth =
+      (width - gap * Math.max(0, safeMaxCharges - 1)) / safeMaxCharges;
     const x = this.scene.scale.gameSize.width - width - 20;
     const y = 53;
 
+    const label = `SPACE · РЫВОК ${safeCharges}/${safeMaxCharges}`;
+    if (label !== this.lastDashLabel) {
+      this.lastDashLabel = label;
+      this.dashLabel.setText(label);
+    }
+
     this.dashGraphics.clear();
-    this.dashGraphics.fillStyle(0x152a42, 0.8);
-    this.dashGraphics.fillRoundedRect(x, y, width, height, 5);
-    this.dashGraphics.fillStyle(visualStep >= DASH_VISUAL_STEPS ? 0x76e69b : 0x69b7ff, 0.95);
-    this.dashGraphics.fillRoundedRect(x, y, width * visualRatio, height, 5);
+    for (let index = 0; index < safeMaxCharges; index += 1) {
+      const segmentX = x + index * (segmentWidth + gap);
+      this.dashGraphics.fillStyle(0x152a42, 0.8);
+      this.dashGraphics.fillRoundedRect(segmentX, y, segmentWidth, height, 5);
+      if (index < safeCharges) {
+        this.dashGraphics.fillStyle(0x76e69b, 0.95);
+        this.dashGraphics.fillRoundedRect(segmentX, y, segmentWidth, height, 5);
+      } else if (index === safeCharges && visualRatio > 0) {
+        this.dashGraphics.fillStyle(0x69b7ff, 0.95);
+        this.dashGraphics.fillRoundedRect(
+          segmentX,
+          y,
+          segmentWidth * visualRatio,
+          height,
+          5,
+        );
+      }
+    }
   }
 
   public showToast(message: string, durationMs = 1800): void {
