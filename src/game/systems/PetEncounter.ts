@@ -66,7 +66,7 @@ export class PetEncounter {
     }
 
     for (const pursuer of this.pursuers) {
-      pursuer.chase.update(player);
+      pursuer.chase.update(time, player);
     }
   }
 
@@ -156,6 +156,7 @@ export class PetEncounter {
     }
     for (const pursuer of this.pursuers) {
       pursuer.owner.shiftTiming(deltaMs);
+      pursuer.chase.shiftTiming(deltaMs);
     }
   }
 

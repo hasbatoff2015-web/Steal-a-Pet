@@ -3,13 +3,23 @@ import Phaser from 'phaser';
 import { UpgradeEffectId } from '../data/upgrades';
 import type { Player } from '../entities/Player';
 import type { ProgressionSystem } from './ProgressionSystem';
+import type { RoamingPetController } from './RoamingPetController';
 import type { RoamingPetSystem } from './RoamingPetSystem';
 import type { UpgradeSystem } from './UpgradeSystem';
 
+const TARGET_REFRESH_MS = 250;
+const DESKTOP_OFFSET_Y = 44;
+const MOBILE_SCALE = 1.12;
+const NEAR_TARGET_DISTANCE_SQ = 360 * 360;
+
 export class PetTrackerSystem {
   private readonly marker: Phaser.GameObjects.Container;
+  private readonly ring: Phaser.GameObjects.Arc;
   private readonly arrow: Phaser.GameObjects.Triangle;
-  private nextUpdateAt = 0;
+  private cachedTarget: RoamingPetController | null = null;
+  private nextTargetRefreshAt = 0;
+  private visible = false;
+  private mobileScaleApplied = false;
 
   public constructor(
     scene: Phaser.Scene,
@@ -18,31 +28,96 @@ export class PetTrackerSystem {
     private readonly progression: ProgressionSystem,
     private readonly upgrades: UpgradeSystem,
   ) {
-    const glow = scene.add.circle(0, 0, 28, 0xffd75d, 0.2).setStrokeStyle(4, 0xffd75d, 0.9);
-    this.arrow = scene.add.triangle(0, 0, 0, -20, -12, 10, 12, 10, 0xffd75d);
-    const label = scene.add.text(0, 34, 'РАДАР', { fontFamily: 'Arial, sans-serif', fontSize: '12px', fontStyle: 'bold', color: '#4d380d', backgroundColor: '#fff5bddd', padding: { x: 5, y: 2 } }).setOrigin(0.5);
-    this.marker = scene.add.container(0, 0, [glow, this.arrow, label]).setDepth(99_000).setVisible(false);
-    scene.tweens.add({ targets: glow, scale: 1.2, alpha: 0.45, yoyo: true, repeat: -1, duration: 700 });
+    this.ring = scene.add
+      .circle(0, 0, 22, 0xffd75d, 0.1)
+      .setStrokeStyle(3, 0xffd75d, 0.92);
+    this.arrow = scene.add.triangle(
+      0,
+      0,
+      0,
+      -8,
+      -7,
+      6,
+      7,
+      6,
+      0xffd75d,
+    );
+    this.marker = scene.add
+      .container(0, 0, [this.ring, this.arrow])
+      .setDepth(99_000)
+      .setVisible(false);
   }
 
-  public update(time: number, activePet: boolean): void {
-    if (time < this.nextUpdateAt) return;
-    this.nextUpdateAt = time + 250;
-    if (activePet || !this.upgrades.hasEffect(UpgradeEffectId.TrackerEnabled)) {
-      this.marker.setVisible(false); return;
+  public update(
+    time: number,
+    activePet: boolean,
+    suppressed = false,
+    mobileMode = false,
+  ): void {
+    const enabled = this.upgrades.hasEffect(UpgradeEffectId.TrackerEnabled);
+    if (!enabled || activePet || suppressed) {
+      this.setVisible(false);
+      return;
     }
-    let nearest: { x: number; y: number; distanceSq: number } | null = null;
+
+    if (time >= this.nextTargetRefreshAt) {
+      this.nextTargetRefreshAt = time + TARGET_REFRESH_MS;
+      this.refreshTarget();
+    }
+
+    const target = this.cachedTarget;
+    if (
+      target === null ||
+      !target.isAccessible() ||
+      this.progression.isPetDelivered(target.definition.petId)
+    ) {
+      this.setVisible(false);
+      return;
+    }
+
+    if (mobileMode !== this.mobileScaleApplied) {
+      this.mobileScaleApplied = mobileMode;
+      this.marker.setScale(mobileMode ? MOBILE_SCALE : 1);
+    }
+
+    const dx = target.pet.x - this.player.x;
+    const dy = target.pet.y - this.player.y;
+    const angle = Math.atan2(dy, dx);
+    this.marker.setPosition(this.player.x, this.player.y + DESKTOP_OFFSET_Y);
+    this.arrow.setRotation(angle + Math.PI / 2);
+    const distanceSq = dx * dx + dy * dy;
+    this.ring.setAlpha(
+      distanceSq < NEAR_TARGET_DISTANCE_SQ
+        ? 0.78 + Math.sin(time * 0.008) * 0.16
+        : 0.92,
+    );
+    this.setVisible(true);
+  }
+
+  public getDebugSnapshot(): string {
+    return `visible=${this.visible} pos=${this.marker.x.toFixed(0)},${this.marker.y.toFixed(0)}` +
+      ` target=${this.cachedTarget?.definition.petId ?? 'none'}`;
+  }
+
+  private refreshTarget(): void {
+    let nearest: RoamingPetController | null = null;
+    let nearestDistanceSq = Number.POSITIVE_INFINITY;
     for (const controller of this.roaming.getControllers()) {
       if (!controller.isAccessible() || this.progression.isPetDelivered(controller.definition.petId)) continue;
-      const dx = controller.pet.x - this.player.x; const dy = controller.pet.y - this.player.y;
+      const dx = controller.pet.x - this.player.x;
+      const dy = controller.pet.y - this.player.y;
       const distanceSq = dx * dx + dy * dy;
-      if (nearest === null || distanceSq < nearest.distanceSq) nearest = { x: controller.pet.x, y: controller.pet.y, distanceSq };
+      if (distanceSq < nearestDistanceSq) {
+        nearest = controller;
+        nearestDistanceSq = distanceSq;
+      }
     }
-    if (nearest === null) { this.marker.setVisible(false); return; }
-    const angle = Math.atan2(nearest.y - this.player.y, nearest.x - this.player.x);
-    const quantized = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-    this.marker.setPosition(this.player.x + Math.cos(quantized) * 105, this.player.y + Math.sin(quantized) * 105);
-    this.arrow.setRotation(quantized + Math.PI / 2);
-    this.marker.setVisible(true);
+    this.cachedTarget = nearest;
+  }
+
+  private setVisible(visible: boolean): void {
+    if (visible === this.visible) return;
+    this.visible = visible;
+    this.marker.setVisible(visible);
   }
 }

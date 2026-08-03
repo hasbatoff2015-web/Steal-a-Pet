@@ -469,7 +469,9 @@ export class CoreLoopSystem {
       this.progression.notifyUpgradePurchased(this.economy.getMoney());
       for (const item of this.upgradeStations) item.station.setState(this.upgradeSystem.getStationState(item.branchId));
       this.hud.showToast(
-        upgradeId === DOUBLE_DASH_UPGRADE.id
+        upgradeId === 'pet-tracker'
+          ? 'Трекер показывает направление к свободному питомцу'
+          : upgradeId === DOUBLE_DASH_UPGRADE.id
           ? 'ДВОЙНОЙ РЫВОК! Теперь доступны два заряда'
           : upgradeId === 'fast-dash'
             ? 'БЫСТРЫЙ РЫВОК! Перезарядка теперь 650 мс'

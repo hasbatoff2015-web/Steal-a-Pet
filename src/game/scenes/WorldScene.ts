@@ -2,6 +2,10 @@ import Phaser from 'phaser';
 
 import { PET_CONFIG, WORLD } from '../config/gameplay';
 import { PET_ENCOUNTER_DEFINITIONS } from '../data/encounters';
+import {
+  CHASE_NAVIGATION_GRAPHS,
+  ChaseEdgeConditionId,
+} from '../data/chaseNavigation';
 import type { RoamingPetId } from '../data/roamingPets';
 import { getPetDefinition, type PetId } from '../data/pets';
 import { UpgradeBranchId, UPGRADE_DEFINITIONS } from '../data/upgrades';
@@ -248,6 +252,7 @@ export class WorldScene extends Phaser.Scene {
   public override update(time: number, delta: number): void {
     this.victoryOverlay.update();
     if (this.victoryOverlay.isVisible()) {
+      this.petTrackerSystem.update(time, true, true, this.inputController.isMobileMode);
       this.developerTools?.update(time);
       this.playtestSystem.update(time);
       this.player.setVelocity(0, 0);
@@ -271,7 +276,12 @@ export class WorldScene extends Phaser.Scene {
       this.lastRoamingPenCount = roamingCount;
       this.world.roamingPenLabel.setText(`СВОБОДНЫЙ ЗАГОН · ${roamingCount}/6`);
     }
-    this.petTrackerSystem.update(time, this.coreLoop.getPhase() === 'ESCAPE');
+    this.petTrackerSystem.update(
+      time,
+      this.coreLoop.getPhase() === 'ESCAPE',
+      false,
+      this.inputController.isMobileMode,
+    );
     this.economy.update(delta);
     this.hud.recordPerformance(time, delta);
     this.updateRuntimeHud(time);
@@ -289,9 +299,11 @@ export class WorldScene extends Phaser.Scene {
           .join(' '),
         chaseState: this.encounters
           .flatMap((encounter) =>
-            encounter.pursuers.map(
-              (pursuer) => `${pursuer.definition.id}:${pursuer.chase.getState()}`,
-            ),
+            encounter.pursuers.map((pursuer) => {
+              const navigation = pursuer.chase.getNavigationDebugState();
+              return `${pursuer.definition.id}:${pursuer.chase.getState()}/${navigation.mode}` +
+                `:${navigation.currentNodeId}:los=${navigation.lineOfSight}`;
+            }),
           )
           .join(' '),
       });
@@ -343,7 +355,16 @@ export class WorldScene extends Phaser.Scene {
         return {
           definition: pursuerDefinition,
           owner,
-          chase: new ChaseSystem(owner, pursuerDefinition.chase),
+          chase: new ChaseSystem(
+            owner,
+            pursuerDefinition.chase,
+            CHASE_NAVIGATION_GRAPHS[pursuerDefinition.chaseNavigationGraphId],
+            {
+              blockers: this.world.navigationBlockers,
+              isConditionOpen: (conditionId) => this.isChaseEdgeConditionOpen(conditionId),
+            },
+            pursuerDefinition.navigationBias,
+          ),
           activated: false,
         };
       });
@@ -421,6 +442,11 @@ export class WorldScene extends Phaser.Scene {
         this.player.setPosition(
           this.world.upgradeStationPosition.x,
           this.world.upgradeStationPosition.y + 72,
+        ),
+      toTrackingStation: () =>
+        this.player.setPosition(
+          this.world.trackingStationPosition.x,
+          this.world.trackingStationPosition.y + 72,
         ),
       catchActive: (pursuerIndex) =>
         this.teleportActivePursuerToPlayer(pursuerIndex),
@@ -564,14 +590,40 @@ export class WorldScene extends Phaser.Scene {
         .map((encounter) => `${encounter.pet.petId}:${encounter.pet.getState()}`)
         .join(',')}`,
       `roaming=${this.roamingSystem.getControllers().map((item) => item.getDebugSnapshot()).join(',')}`,
+      `tracker=${this.petTrackerSystem.getDebugSnapshot()}`,
       `owners=${this.encounters
         .flatMap((encounter) =>
           encounter.pursuers.map(
-            (pursuer) => `${pursuer.definition.id}:${pursuer.owner.getState()}`,
+            (pursuer) => {
+              const navigation = pursuer.chase.getNavigationDebugState();
+              return `${pursuer.definition.id}:${pursuer.owner.getState()}/${navigation.mode}` +
+                ` graph=${navigation.graphId} node=${navigation.currentNodeId}` +
+                ` left=${navigation.remainingPathLength} los=${navigation.lineOfSight}` +
+                ` repath=${Math.max(0, navigation.nextRepathAt - this.time.now).toFixed(0)}` +
+                ` stuck=${navigation.stuckDurationMs.toFixed(0)}`;
+            },
           ),
         )
         .join(',')}`,
     ].join(' · ');
+  }
+
+  private isChaseEdgeConditionOpen(conditionId: string): boolean {
+    switch (conditionId) {
+      case ChaseEdgeConditionId.ParkGateOpen:
+        return this.world.parkGate.isUnlocked();
+      case ChaseEdgeConditionId.CentralGateOpen:
+        return this.world.centralHubGate.isUnlocked();
+      case ChaseEdgeConditionId.RichGateOpen:
+        return this.world.richDistrictGate.isUnlocked();
+      case ChaseEdgeConditionId.VipGateOpen:
+        return this.world.vipEstateGate.isUnlocked();
+      case ChaseEdgeConditionId.DragonLeftOpen:
+      case ChaseEdgeConditionId.DragonRightOpen:
+        return this.world.dragonCourtyard.isOpen();
+      default:
+        return false;
+    }
   }
 
   private persistProgress(): void {

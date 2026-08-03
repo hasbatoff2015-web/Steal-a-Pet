@@ -1,4 +1,6 @@
 import type { PetId } from './pets';
+import { ChaseGraphId } from './chaseNavigation';
+import type { ChaseLane } from '../systems/ChaseNavigation';
 import { ZoneId } from './zones';
 
 export interface WorldPoint {
@@ -23,6 +25,8 @@ export interface PursuerDefinition {
   readonly activationMessage?: string;
   readonly returnRoutes?: readonly (readonly WorldPoint[])[];
   readonly returnResetAfterMs?: number;
+  readonly chaseNavigationGraphId: ChaseGraphId;
+  readonly navigationBias?: ChaseLane;
 }
 
 export interface PetEncounterDefinition {
@@ -45,6 +49,7 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'starter-owner',
         home: { x: 1500, y: 1580 },
         visualKey: 'owner',
+        chaseNavigationGraphId: ChaseGraphId.Starter,
         chase: {
           npcSpeed: 226,
           returnSpeed: 185,
@@ -65,6 +70,7 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'park-owner',
         home: { x: 1220, y: 620 },
         visualKey: 'park-owner',
+        chaseNavigationGraphId: ChaseGraphId.Park,
         chase: {
           npcSpeed: 238,
           returnSpeed: 190,
@@ -108,6 +114,7 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'hub-owner',
         home: { x: 2260, y: 1650 },
         visualKey: 'hub-owner',
+        chaseNavigationGraphId: ChaseGraphId.Central,
         chase: {
           npcSpeed: 240,
           returnSpeed: 195,
@@ -145,6 +152,7 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'peacock-owner',
         home: { x: 3015, y: 1120 },
         visualKey: 'rich-owner',
+        chaseNavigationGraphId: ChaseGraphId.RichA,
         chase: {
           npcSpeed: 244,
           returnSpeed: 200,
@@ -188,6 +196,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'panda-owner',
         home: { x: 3440, y: 2030 },
         visualKey: 'panda-owner',
+        chaseNavigationGraphId: ChaseGraphId.RichB,
+        navigationBias: -1,
         chase: {
           npcSpeed: 240,
           returnSpeed: 198,
@@ -217,6 +227,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'panda-guard',
         home: { x: 3300, y: 2220 },
         visualKey: 'rich-guard',
+        chaseNavigationGraphId: ChaseGraphId.RichB,
+        navigationBias: 1,
         activationDelayMs: 800,
         chase: {
           npcSpeed: 232,
@@ -254,6 +266,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'vip-a-owner',
         home: { x: 2795, y: 620 },
         visualKey: 'vip-owner-gold',
+        chaseNavigationGraphId: ChaseGraphId.VipWest,
+        navigationBias: -1,
         chase: {
           npcSpeed: 240,
           returnSpeed: 198,
@@ -279,6 +293,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'vip-a-garden-guard',
         home: { x: 3090, y: 555 },
         visualKey: 'vip-guard-gold',
+        chaseNavigationGraphId: ChaseGraphId.VipWest,
+        navigationBias: 1,
         activationDelayMs: 750,
         activationMessage: 'СРАБОТАЛА ТРЕВОГА!',
         chase: {
@@ -314,6 +330,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'vip-b-owner',
         home: { x: 3680, y: 615 },
         visualKey: 'vip-owner-purple',
+        chaseNavigationGraphId: ChaseGraphId.VipEast,
+        navigationBias: 1,
         chase: {
           npcSpeed: 242,
           returnSpeed: 198,
@@ -339,6 +357,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'vip-b-intercept-guard',
         home: { x: 3480, y: 735 },
         visualKey: 'vip-guard-purple',
+        chaseNavigationGraphId: ChaseGraphId.VipEast,
+        navigationBias: -1,
         activationDelayMs: 1000,
         activationMessage: 'ПЕРЕХВАТЧИК ВЫШЕЛ К ВОРОТАМ!',
         chase: {
@@ -374,6 +394,7 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'dragon-boss',
         home: { x: 3340, y: 330 },
         visualKey: 'vip-boss',
+        chaseNavigationGraphId: ChaseGraphId.Dragon,
         chase: {
           npcSpeed: 240,
           returnSpeed: 198,
@@ -403,6 +424,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'dragon-guard-a',
         home: { x: 3140, y: 300 },
         visualKey: 'vip-guard-gold',
+        chaseNavigationGraphId: ChaseGraphId.Dragon,
+        navigationBias: -1,
         activationDelayMs: 700,
         activationMessage: 'СРАБОТАЛА ТРЕВОГА!',
         chase: {
@@ -430,6 +453,8 @@ export const PET_ENCOUNTER_DEFINITIONS: readonly PetEncounterDefinition[] = [
         id: 'dragon-guard-b',
         home: { x: 3540, y: 305 },
         visualKey: 'vip-guard-purple',
+        chaseNavigationGraphId: ChaseGraphId.Dragon,
+        navigationBias: 1,
         activationDelayMs: 1400,
         activationMessage: 'ПОДКРЕПЛЕНИЕ ПРИБЫЛО!',
         chase: {

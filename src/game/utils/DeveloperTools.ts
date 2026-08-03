@@ -15,6 +15,7 @@ interface DeveloperActions {
   toVipEstateGate: () => void;
   toDragonCourtyard: () => void;
   toUpgradeStation: () => void;
+  toTrackingStation: () => void;
   prepareVipPrerequisites: () => void;
   catchActive: (pursuerIndex: number) => void;
   deliverActive: () => void;
@@ -105,6 +106,7 @@ export class DeveloperTools {
       this.createButton('К VIP GATE', 'dev-to-vip-gate', actions.toVipEstateGate),
       this.createButton('К DRAGON', 'dev-to-dragon-courtyard', actions.toDragonCourtyard),
       this.createButton('К UPGRADE', 'dev-to-upgrade', actions.toUpgradeStation),
+      this.createButton('К TRACKING', 'dev-to-tracking', actions.toTrackingStation),
       this.createButton('VIP PREREQS', 'dev-vip-prereqs', actions.prepareVipPrerequisites),
       this.createButton('+25', 'dev-add-money', () => actions.addMoney(25)),
       this.createButton('+75', 'dev-add-money-75', () => actions.addMoney(75)),

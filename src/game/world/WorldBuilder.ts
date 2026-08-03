@@ -14,9 +14,11 @@ import { DragonCourtyard } from './DragonCourtyard';
 import { UpgradeStation } from './UpgradeStation';
 import { ProgressShortcut } from './ProgressShortcut';
 import { ZoneGate } from './ZoneGate';
+import type { NavigationBlocker } from '../systems/ChaseNavigation';
 
 export interface WorldBuildResult extends PrototypeWorldLayout {
   obstacles: Phaser.Physics.Arcade.StaticGroup;
+  navigationBlockers: readonly NavigationBlocker[];
   parkGate: ZoneGate;
   centralHubGate: ZoneGate;
   richDistrictGate: ZoneGate;
@@ -53,6 +55,8 @@ interface BuildingOptions {
 
 export class WorldBuilder {
   private readonly obstacles: Phaser.Physics.Arcade.StaticGroup;
+  private readonly navigationBlockers: NavigationBlocker[] = [];
+  private navigationBlockerSequence = 0;
 
   public constructor(private readonly scene: Phaser.Scene) {
     this.obstacles = scene.physics.add.staticGroup();
@@ -123,6 +127,7 @@ export class WorldBuilder {
 
     return {
       obstacles: this.obstacles,
+      navigationBlockers: this.navigationBlockers,
       playerSpawn: new Phaser.Math.Vector2(
         PROTOTYPE_LAYOUT.playerSpawn.x,
         PROTOTYPE_LAYOUT.playerSpawn.y,
@@ -568,7 +573,7 @@ export class WorldBuilder {
       .rectangle(x, y, 112, 54, 0x99633e)
       .setStrokeStyle(6, 0xffd793, 0.92)
       .setDepth(y);
-    this.obstacles.add(bench);
+    this.addStaticObstacle(bench);
     this.scene.add
       .rectangle(x - 34, y - 34, 16, 42, accentColor)
       .setStrokeStyle(3, 0xffffff, 0.7)
@@ -1085,7 +1090,7 @@ export class WorldBuilder {
       .circle(3090, 1260, 66, 0x65c7df, 0.96)
       .setStrokeStyle(10, 0xffffff, 0.85)
       .setDepth(1260);
-    this.obstacles.add(fountain);
+    this.addStaticObstacle(fountain);
     this.scene.add.circle(3090, 1260, 20, 0xf4d16e).setDepth(1261);
     for (const [x, y] of [
       [2860, 1365],
@@ -1126,12 +1131,12 @@ export class WorldBuilder {
       .rectangle(3255, 1905, 215, 125, 0x4dbddd, 0.96)
       .setStrokeStyle(9, 0xecffff, 0.9)
       .setDepth(1905);
-    this.obstacles.add(pool);
+    this.addStaticObstacle(pool);
     const guardBooth = this.scene.add
       .rectangle(3205, 2200, 92, 72, 0xf2dfb6)
       .setStrokeStyle(6, 0x7b6650, 0.9)
       .setDepth(2225);
-    this.obstacles.add(guardBooth);
+    this.addStaticObstacle(guardBooth);
     this.scene.add
       .circle(3205, 2152, 14, 0xff4f58, 0.96)
       .setStrokeStyle(4, 0xffffff, 0.8)
@@ -1263,7 +1268,7 @@ export class WorldBuilder {
       .circle(2980, 655, 52, 0x63c8e2, 0.96)
       .setStrokeStyle(8, 0xfff4d2, 0.9)
       .setDepth(655);
-    this.obstacles.add(gardenFountain);
+    this.addStaticObstacle(gardenFountain);
     this.scene.add.circle(2980, 655, 15, 0xf4cf60).setDepth(656);
 
     const eastCourt = this.scene.add
@@ -1492,7 +1497,7 @@ export class WorldBuilder {
       .rectangle(x, y, width, height, color)
       .setStrokeStyle(8, 0xffffff, 0.65)
       .setDepth(bottom);
-    this.obstacles.add(body);
+    this.addStaticObstacle(body);
 
     this.scene.add
       .triangle(
@@ -1551,7 +1556,7 @@ export class WorldBuilder {
       .rectangle(x, y + 13, 72, 8, 0x704329)
       .setRotation(rotation)
       .setDepth(y - 1);
-    this.obstacles.add(bench);
+    this.addStaticObstacle(bench);
   }
 
   private addInvisibleObstacle(
@@ -1563,7 +1568,30 @@ export class WorldBuilder {
     const obstacle = this.scene.add
       .rectangle(x + width / 2, y + height / 2, width, height, 0xffffff, 0.001)
       .setDepth(DEPTH.ground + 1);
+    this.addStaticObstacle(obstacle);
+    return obstacle;
+  }
+
+  private addStaticObstacle<
+    T extends Phaser.GameObjects.GameObject & {
+      readonly x: number;
+      readonly y: number;
+      readonly displayWidth: number;
+      readonly displayHeight: number;
+    },
+  >(obstacle: T): T {
     this.obstacles.add(obstacle);
+    const halfWidth = obstacle.displayWidth / 2;
+    const halfHeight = obstacle.displayHeight / 2;
+    this.navigationBlockerSequence += 1;
+    this.navigationBlockers.push({
+      id: `world-blocker-${this.navigationBlockerSequence}`,
+      minX: obstacle.x - halfWidth,
+      minY: obstacle.y - halfHeight,
+      maxX: obstacle.x + halfWidth,
+      maxY: obstacle.y + halfHeight,
+      isActive: () => obstacle.active,
+    });
     return obstacle;
   }
 

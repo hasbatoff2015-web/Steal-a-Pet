@@ -36,8 +36,18 @@ tests/          pure/data/system unit tests
 
 - `Player` нормализует keyboard/touch movement, использует Arcade velocity, отдельный `DashChargeController`; Runner multiplier влияет только на обычное движение.
 - `Pet` — общая world-сущность HEIST и ROAMING после захвата: following через `PlayerPathHistory`, base idle, income feedback и Y-depth.
-- `OwnerNpc` + `ChaseSystem` реализуют существующие pursuits/return/reset; скорости encounters Этапа 5 не менялись.
+- `OwnerNpc` + `ChaseSystem` реализуют существующие pursuits/return/reset; скорости encounters Этапа 5 не менялись. CHASING использует отдельный `PursuerNavigation`: дешёвый LOS выбирает прямую погоню, а при перекрытии пути — authored graph текущего encounter.
 - `PetEncounter` поддерживает массив pursuers. Quiet Shoes передаёт data-driven timing bonuses один раз при старте кражи.
+
+### Навигация погони
+
+`chaseNavigation.ts` хранит малые data-driven graphs для Starter, PARK pavilion, CENTRAL HUB, обеих RICH усадеб, обоих VIP крыльев и Dragon Courtyard. Pursuer ссылается на graph id и необязательный lane bias; encounter-specific ветвлений в `ChaseSystem` нет.
+
+`ChaseNavigation.ts` содержит чистую геометрию segment/rectangle LOS, скомпилированный adjacency graph, A* и простое path smoothing. Крупные физические препятствия регистрируются `WorldBuilder` одновременно как collision object и упрощённый navigation blocker, поэтому LOS соответствует фактическим стенам. Уничтоженный barrier автоматически перестаёт блокировать LOS.
+
+При открытом LOS NPC идёт к фактической позиции Player. При закрытом LOS маршрут перестраивается не чаще одного раза в `220 ms`; authored edges доверяются как проверенные проходы, а gate-conditioned edges доступны только при открытом PARK/CENTRAL/RICH/VIP gate или снятой защите Dragon Courtyard. LOS и smoothing продолжают проверять реальные blocker bounds. Node считается достигнутым в радиусе `34 px`.
+
+Lane bias `-1/0/1` разводит равноценные левые/правые маршруты владельцев и guards без cooperative AI. Stuck detector дискретно проверяет движение и сокращение дистанции: сначала форсирует repath, затем исключает неудачный стартовый node, и только после повторного застревания допускает reset на видимый безопасный node не ближе `460 px` к Player. RETURNING по-прежнему использует прежние проверенные return routes и не строит A*.
 
 ## Roaming AI
 
@@ -61,7 +71,7 @@ tests/          pure/data/system unit tests
 
 `UpgradeDefinition.effects[]` поддерживает DashCooldownMs, MaxDashCharges, MoveSpeedMultiplier, три Roaming multipliers, два Theft timing bonuses и TrackerEnabled.
 
-Три `UpgradeStation` имеют branch id MOBILITY/TRACKING/STEALTH и dirty-rendered состояния. `PetTrackerSystem` обновляется не чаще 4 раз/сек, показывает приблизительное восьминаправленное направление и игнорирует закрытые зоны, доставленных pets и active carry.
+Три `UpgradeStation` имеют branch id MOBILITY/TRACKING/STEALTH и dirty-rendered состояния. `PetTrackerSystem` разделяет target selection и visual transform: ближайшая доступная цель кэшируется с частотой 4 Гц, а world-space marker каждый кадр математически привязывается к текущей позиции Player и текущей позиции cached target. Marker не имеет physics body/tween/Text, состоит из ring диаметром `44 px` со stroke `3 px` и стрелки `14 px`, находится на `44 px` ниже центра Player и слегка увеличивается на mobile. Он скрывается при active carry, закрытой/отсутствующей цели и victory overlay.
 
 ## World
 

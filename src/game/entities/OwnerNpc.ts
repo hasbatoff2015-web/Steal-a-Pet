@@ -101,7 +101,7 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     this.visualResetStartedAt = 0;
   }
 
-  public updateNpc(player: Phaser.GameObjects.GameObject & Phaser.Types.Math.Vector2Like): void {
+  public updateNpc(chaseTarget: Phaser.Types.Math.Vector2Like): void {
     if (this.ownerState === OwnerState.Idle) {
       if (this.scene.time.now < this.nextIdleVisualAt) {
         return;
@@ -112,7 +112,12 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (this.ownerState === OwnerState.Chasing) {
-      this.scene.physics.moveToObject(this, player, this.chaseParameters.npcSpeed);
+      this.scene.physics.moveTo(
+        this,
+        chaseTarget.x,
+        chaseTarget.y,
+        this.chaseParameters.npcSpeed,
+      );
     } else {
       this.updateReturn();
     }
