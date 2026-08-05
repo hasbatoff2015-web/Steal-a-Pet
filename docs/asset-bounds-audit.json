@@ -1,0 +1,1304 @@
+[
+  {
+    "id": "characters/guards/guard_rich",
+    "sourcePath": "art/source/generated_originals/characters/guards/guard_rich.png",
+    "runtimePath": "public/assets/characters/guards/guard_rich.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      258,
+      75,
+      799,
+      1388
+    ],
+    "visibleSize": [
+      541,
+      1313
+    ],
+    "visibleWidthRatio": 0.5283,
+    "visibleHeightRatio": 0.8548,
+    "runtimeSize": [
+      565,
+      1337
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.991
+    ]
+  },
+  {
+    "id": "characters/guards/guard_vip",
+    "sourcePath": "art/source/generated_originals/characters/guards/guard_vip.png",
+    "runtimePath": "public/assets/characters/guards/guard_vip.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      245,
+      118,
+      784,
+      1318
+    ],
+    "visibleSize": [
+      539,
+      1200
+    ],
+    "visibleWidthRatio": 0.5264,
+    "visibleHeightRatio": 0.7812,
+    "runtimeSize": [
+      563,
+      1224
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9902
+    ]
+  },
+  {
+    "id": "characters/owners/owner_cat",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_cat.png",
+    "runtimePath": "public/assets/characters/owners/owner_cat.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      260,
+      60,
+      786,
+      1322
+    ],
+    "visibleSize": [
+      526,
+      1262
+    ],
+    "visibleWidthRatio": 0.5137,
+    "visibleHeightRatio": 0.8216,
+    "runtimeSize": [
+      550,
+      1286
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9907
+    ]
+  },
+  {
+    "id": "characters/owners/owner_dog",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_dog.png",
+    "runtimePath": "public/assets/characters/owners/owner_dog.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      269,
+      148,
+      739,
+      1205
+    ],
+    "visibleSize": [
+      470,
+      1057
+    ],
+    "visibleWidthRatio": 0.459,
+    "visibleHeightRatio": 0.6882,
+    "runtimeSize": [
+      494,
+      1081
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9889
+    ]
+  },
+  {
+    "id": "characters/owners/owner_dragon_boss",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_dragon_boss.png",
+    "runtimePath": "public/assets/characters/owners/owner_dragon_boss.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      268,
+      85,
+      794,
+      1357
+    ],
+    "visibleSize": [
+      526,
+      1272
+    ],
+    "visibleWidthRatio": 0.5137,
+    "visibleHeightRatio": 0.8281,
+    "runtimeSize": [
+      550,
+      1296
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9907
+    ]
+  },
+  {
+    "id": "characters/owners/owner_fox",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_fox.png",
+    "runtimePath": "public/assets/characters/owners/owner_fox.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      292,
+      83,
+      790,
+      1371
+    ],
+    "visibleSize": [
+      498,
+      1288
+    ],
+    "visibleWidthRatio": 0.4863,
+    "visibleHeightRatio": 0.8385,
+    "runtimeSize": [
+      522,
+      1312
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9909
+    ]
+  },
+  {
+    "id": "characters/owners/owner_panda",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_panda.png",
+    "runtimePath": "public/assets/characters/owners/owner_panda.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      191,
+      164,
+      891,
+      1323
+    ],
+    "visibleSize": [
+      700,
+      1159
+    ],
+    "visibleWidthRatio": 0.6836,
+    "visibleHeightRatio": 0.7546,
+    "runtimeSize": [
+      724,
+      1183
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9899
+    ]
+  },
+  {
+    "id": "characters/owners/owner_peacock",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_peacock.png",
+    "runtimePath": "public/assets/characters/owners/owner_peacock.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      278,
+      110,
+      794,
+      1367
+    ],
+    "visibleSize": [
+      516,
+      1257
+    ],
+    "visibleWidthRatio": 0.5039,
+    "visibleHeightRatio": 0.8184,
+    "runtimeSize": [
+      540,
+      1281
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9906
+    ]
+  },
+  {
+    "id": "characters/owners/owner_vip_a",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_vip_a.png",
+    "runtimePath": "public/assets/characters/owners/owner_vip_a.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      153,
+      111,
+      782,
+      1333
+    ],
+    "visibleSize": [
+      629,
+      1222
+    ],
+    "visibleWidthRatio": 0.6143,
+    "visibleHeightRatio": 0.7956,
+    "runtimeSize": [
+      653,
+      1246
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9904
+    ]
+  },
+  {
+    "id": "characters/owners/owner_vip_b",
+    "sourcePath": "art/source/generated_originals/characters/owners/owner_vip_b.png",
+    "runtimePath": "public/assets/characters/owners/owner_vip_b.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      221,
+      99,
+      745,
+      1340
+    ],
+    "visibleSize": [
+      524,
+      1241
+    ],
+    "visibleWidthRatio": 0.5117,
+    "visibleHeightRatio": 0.8079,
+    "runtimeSize": [
+      548,
+      1265
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9905
+    ]
+  },
+  {
+    "id": "characters/player/player_world",
+    "sourcePath": "art/source/generated_originals/characters/player/player_world.png",
+    "runtimePath": "public/assets/characters/player/player_world.png",
+    "canvas": [
+      1024,
+      1536
+    ],
+    "visibleBounds": [
+      283,
+      230,
+      742,
+      1169
+    ],
+    "visibleSize": [
+      459,
+      939
+    ],
+    "visibleWidthRatio": 0.4482,
+    "visibleHeightRatio": 0.6113,
+    "runtimeSize": [
+      483,
+      963
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9875
+    ]
+  },
+  {
+    "id": "pets/core/pet_cat",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_cat.png",
+    "runtimePath": "public/assets/pets/core/pet_cat.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      384,
+      136,
+      1143,
+      879
+    ],
+    "visibleSize": [
+      759,
+      743
+    ],
+    "visibleWidthRatio": 0.4941,
+    "visibleHeightRatio": 0.7256,
+    "runtimeSize": [
+      783,
+      767
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9844
+    ]
+  },
+  {
+    "id": "pets/core/pet_dog",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_dog.png",
+    "runtimePath": "public/assets/pets/core/pet_dog.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      416,
+      104,
+      1188,
+      897
+    ],
+    "visibleSize": [
+      772,
+      793
+    ],
+    "visibleWidthRatio": 0.5026,
+    "visibleHeightRatio": 0.7744,
+    "runtimeSize": [
+      796,
+      817
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9853
+    ]
+  },
+  {
+    "id": "pets/core/pet_dragon",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_dragon.png",
+    "runtimePath": "public/assets/pets/core/pet_dragon.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      316,
+      76,
+      1142,
+      854
+    ],
+    "visibleSize": [
+      826,
+      778
+    ],
+    "visibleWidthRatio": 0.5378,
+    "visibleHeightRatio": 0.7598,
+    "runtimeSize": [
+      850,
+      802
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.985
+    ]
+  },
+  {
+    "id": "pets/core/pet_fox",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_fox.png",
+    "runtimePath": "public/assets/pets/core/pet_fox.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      349,
+      95,
+      1149,
+      866
+    ],
+    "visibleSize": [
+      800,
+      771
+    ],
+    "visibleWidthRatio": 0.5208,
+    "visibleHeightRatio": 0.7529,
+    "runtimeSize": [
+      824,
+      795
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9849
+    ]
+  },
+  {
+    "id": "pets/core/pet_panda",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_panda.png",
+    "runtimePath": "public/assets/pets/core/pet_panda.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      390,
+      49,
+      1133,
+      956
+    ],
+    "visibleSize": [
+      743,
+      907
+    ],
+    "visibleWidthRatio": 0.4837,
+    "visibleHeightRatio": 0.8857,
+    "runtimeSize": [
+      767,
+      931
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9871
+    ]
+  },
+  {
+    "id": "pets/core/pet_peacock",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_peacock.png",
+    "runtimePath": "public/assets/pets/core/pet_peacock.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      273,
+      40,
+      1256,
+      846
+    ],
+    "visibleSize": [
+      983,
+      806
+    ],
+    "visibleWidthRatio": 0.64,
+    "visibleHeightRatio": 0.7871,
+    "runtimeSize": [
+      1007,
+      830
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9855
+    ]
+  },
+  {
+    "id": "pets/core/pet_vip_a",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_vip_a.png",
+    "runtimePath": "public/assets/pets/core/pet_vip_a.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      443,
+      81,
+      1096,
+      901
+    ],
+    "visibleSize": [
+      653,
+      820
+    ],
+    "visibleWidthRatio": 0.4251,
+    "visibleHeightRatio": 0.8008,
+    "runtimeSize": [
+      677,
+      844
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9858
+    ]
+  },
+  {
+    "id": "pets/core/pet_vip_b",
+    "sourcePath": "art/source/generated_originals/pets/core/pet_vip_b.png",
+    "runtimePath": "public/assets/pets/core/pet_vip_b.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      428,
+      55,
+      1102,
+      901
+    ],
+    "visibleSize": [
+      674,
+      846
+    ],
+    "visibleWidthRatio": 0.4388,
+    "visibleHeightRatio": 0.8262,
+    "runtimeSize": [
+      698,
+      870
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9862
+    ]
+  },
+  {
+    "id": "pets/roaming/pet_roam_01",
+    "sourcePath": "art/source/generated_originals/pets/roaming/pet_roam_01.png",
+    "runtimePath": "public/assets/pets/roaming/pet_roam_01.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      456,
+      118,
+      1107,
+      838
+    ],
+    "visibleSize": [
+      651,
+      720
+    ],
+    "visibleWidthRatio": 0.4238,
+    "visibleHeightRatio": 0.7031,
+    "runtimeSize": [
+      675,
+      744
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9839
+    ]
+  },
+  {
+    "id": "pets/roaming/pet_roam_02",
+    "sourcePath": "art/source/generated_originals/pets/roaming/pet_roam_02.png",
+    "runtimePath": "public/assets/pets/roaming/pet_roam_02.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      396,
+      104,
+      1148,
+      870
+    ],
+    "visibleSize": [
+      752,
+      766
+    ],
+    "visibleWidthRatio": 0.4896,
+    "visibleHeightRatio": 0.748,
+    "runtimeSize": [
+      776,
+      790
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9848
+    ]
+  },
+  {
+    "id": "pets/roaming/pet_roam_03",
+    "sourcePath": "art/source/generated_originals/pets/roaming/pet_roam_03.png",
+    "runtimePath": "public/assets/pets/roaming/pet_roam_03.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      476,
+      45,
+      1144,
+      941
+    ],
+    "visibleSize": [
+      668,
+      896
+    ],
+    "visibleWidthRatio": 0.4349,
+    "visibleHeightRatio": 0.875,
+    "runtimeSize": [
+      692,
+      920
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.987
+    ]
+  },
+  {
+    "id": "pets/roaming/pet_roam_04",
+    "sourcePath": "art/source/generated_originals/pets/roaming/pet_roam_04.png",
+    "runtimePath": "public/assets/pets/roaming/pet_roam_04.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      358,
+      151,
+      1208,
+      789
+    ],
+    "visibleSize": [
+      850,
+      638
+    ],
+    "visibleWidthRatio": 0.5534,
+    "visibleHeightRatio": 0.623,
+    "runtimeSize": [
+      874,
+      662
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9819
+    ]
+  },
+  {
+    "id": "pets/roaming/pet_roam_05",
+    "sourcePath": "art/source/generated_originals/pets/roaming/pet_roam_05.png",
+    "runtimePath": "public/assets/pets/roaming/pet_roam_05.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      438,
+      74,
+      1043,
+      898
+    ],
+    "visibleSize": [
+      605,
+      824
+    ],
+    "visibleWidthRatio": 0.3939,
+    "visibleHeightRatio": 0.8047,
+    "runtimeSize": [
+      629,
+      848
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9858
+    ]
+  },
+  {
+    "id": "pets/roaming/pet_roam_06",
+    "sourcePath": "art/source/generated_originals/pets/roaming/pet_roam_06.png",
+    "runtimePath": "public/assets/pets/roaming/pet_roam_06.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      397,
+      117,
+      1080,
+      842
+    ],
+    "visibleSize": [
+      683,
+      725
+    ],
+    "visibleWidthRatio": 0.4447,
+    "visibleHeightRatio": 0.708,
+    "runtimeSize": [
+      707,
+      749
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.984
+    ]
+  },
+  {
+    "id": "world/buildings/base_house",
+    "sourcePath": "art/source/generated_originals/world/buildings/base_house.png",
+    "runtimePath": "public/assets/world/buildings/base_house.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      397,
+      98,
+      1222,
+      873
+    ],
+    "visibleSize": [
+      825,
+      775
+    ],
+    "visibleWidthRatio": 0.5371,
+    "visibleHeightRatio": 0.7568,
+    "runtimeSize": [
+      849,
+      799
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.985
+    ]
+  },
+  {
+    "id": "world/buildings/hub_building",
+    "sourcePath": "art/source/generated_originals/world/buildings/hub_building.png",
+    "runtimePath": "public/assets/world/buildings/hub_building.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      382,
+      89,
+      1209,
+      858
+    ],
+    "visibleSize": [
+      827,
+      769
+    ],
+    "visibleWidthRatio": 0.5384,
+    "visibleHeightRatio": 0.751,
+    "runtimeSize": [
+      851,
+      793
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9849
+    ]
+  },
+  {
+    "id": "world/buildings/park_pavilion",
+    "sourcePath": "art/source/generated_originals/world/buildings/park_pavilion.png",
+    "runtimePath": "public/assets/world/buildings/park_pavilion.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      287,
+      79,
+      1230,
+      851
+    ],
+    "visibleSize": [
+      943,
+      772
+    ],
+    "visibleWidthRatio": 0.6139,
+    "visibleHeightRatio": 0.7539,
+    "runtimeSize": [
+      967,
+      796
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9849
+    ]
+  },
+  {
+    "id": "world/buildings/rich_estate",
+    "sourcePath": "art/source/generated_originals/world/buildings/rich_estate.png",
+    "runtimePath": "public/assets/world/buildings/rich_estate.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      256,
+      40,
+      1260,
+      868
+    ],
+    "visibleSize": [
+      1004,
+      828
+    ],
+    "visibleWidthRatio": 0.6536,
+    "visibleHeightRatio": 0.8086,
+    "runtimeSize": [
+      1028,
+      852
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9859
+    ]
+  },
+  {
+    "id": "world/buildings/starter_house",
+    "sourcePath": "art/source/generated_originals/world/buildings/starter_house.png",
+    "runtimePath": "public/assets/world/buildings/starter_house.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      394,
+      62,
+      1171,
+      831
+    ],
+    "visibleSize": [
+      777,
+      769
+    ],
+    "visibleWidthRatio": 0.5059,
+    "visibleHeightRatio": 0.751,
+    "runtimeSize": [
+      801,
+      793
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9849
+    ]
+  },
+  {
+    "id": "world/buildings/vip_palace",
+    "sourcePath": "art/source/generated_originals/world/buildings/vip_palace.png",
+    "runtimePath": "public/assets/world/buildings/vip_palace.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      351,
+      84,
+      1244,
+      843
+    ],
+    "visibleSize": [
+      893,
+      759
+    ],
+    "visibleWidthRatio": 0.5814,
+    "visibleHeightRatio": 0.7412,
+    "runtimeSize": [
+      917,
+      783
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9847
+    ]
+  },
+  {
+    "id": "world/decorations/bench",
+    "sourcePath": "art/source/generated_originals/world/decorations/bench.png",
+    "runtimePath": "public/assets/world/decorations/bench.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      356,
+      193,
+      1237,
+      842
+    ],
+    "visibleSize": [
+      881,
+      649
+    ],
+    "visibleWidthRatio": 0.5736,
+    "visibleHeightRatio": 0.6338,
+    "runtimeSize": [
+      905,
+      673
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9822
+    ]
+  },
+  {
+    "id": "world/decorations/blank_sign",
+    "sourcePath": "art/source/generated_originals/world/decorations/blank_sign.png",
+    "runtimePath": "public/assets/world/decorations/blank_sign.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      366,
+      109,
+      1152,
+      882
+    ],
+    "visibleSize": [
+      786,
+      773
+    ],
+    "visibleWidthRatio": 0.5117,
+    "visibleHeightRatio": 0.7549,
+    "runtimeSize": [
+      810,
+      797
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9849
+    ]
+  },
+  {
+    "id": "world/decorations/bush",
+    "sourcePath": "art/source/generated_originals/world/decorations/bush.png",
+    "runtimePath": "public/assets/world/decorations/bush.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      314,
+      175,
+      1235,
+      878
+    ],
+    "visibleSize": [
+      921,
+      703
+    ],
+    "visibleWidthRatio": 0.5996,
+    "visibleHeightRatio": 0.6865,
+    "runtimeSize": [
+      945,
+      727
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9835
+    ]
+  },
+  {
+    "id": "world/decorations/fountain",
+    "sourcePath": "art/source/generated_originals/world/decorations/fountain.png",
+    "runtimePath": "public/assets/world/decorations/fountain.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      311,
+      77,
+      1202,
+      858
+    ],
+    "visibleSize": [
+      891,
+      781
+    ],
+    "visibleWidthRatio": 0.5801,
+    "visibleHeightRatio": 0.7627,
+    "runtimeSize": [
+      915,
+      805
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9851
+    ]
+  },
+  {
+    "id": "world/decorations/generic_car",
+    "sourcePath": "art/source/generated_originals/world/decorations/generic_car.png",
+    "runtimePath": "public/assets/world/decorations/generic_car.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      339,
+      184,
+      1136,
+      807
+    ],
+    "visibleSize": [
+      797,
+      623
+    ],
+    "visibleWidthRatio": 0.5189,
+    "visibleHeightRatio": 0.6084,
+    "runtimeSize": [
+      821,
+      647
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9815
+    ]
+  },
+  {
+    "id": "world/decorations/street_lamp",
+    "sourcePath": "art/source/generated_originals/world/decorations/street_lamp.png",
+    "runtimePath": "public/assets/world/decorations/street_lamp.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      517,
+      66,
+      964,
+      931
+    ],
+    "visibleSize": [
+      447,
+      865
+    ],
+    "visibleWidthRatio": 0.291,
+    "visibleHeightRatio": 0.8447,
+    "runtimeSize": [
+      471,
+      889
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9865
+    ]
+  },
+  {
+    "id": "world/decorations/tree_round",
+    "sourcePath": "art/source/generated_originals/world/decorations/tree_round.png",
+    "runtimePath": "public/assets/world/decorations/tree_round.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      371,
+      129,
+      1181,
+      875
+    ],
+    "visibleSize": [
+      810,
+      746
+    ],
+    "visibleWidthRatio": 0.5273,
+    "visibleHeightRatio": 0.7285,
+    "runtimeSize": [
+      834,
+      770
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9844
+    ]
+  },
+  {
+    "id": "world/interactive/delivery_pad",
+    "sourcePath": "art/source/generated_originals/world/interactive/delivery_pad.png",
+    "runtimePath": "public/assets/world/interactive/delivery_pad.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      350,
+      251,
+      1194,
+      815
+    ],
+    "visibleSize": [
+      844,
+      564
+    ],
+    "visibleWidthRatio": 0.5495,
+    "visibleHeightRatio": 0.5508,
+    "runtimeSize": [
+      868,
+      588
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9796
+    ]
+  },
+  {
+    "id": "world/interactive/pet_pen",
+    "sourcePath": "art/source/generated_originals/world/interactive/pet_pen.png",
+    "runtimePath": "public/assets/world/interactive/pet_pen.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      220,
+      227,
+      1343,
+      823
+    ],
+    "visibleSize": [
+      1123,
+      596
+    ],
+    "visibleWidthRatio": 0.7311,
+    "visibleHeightRatio": 0.582,
+    "runtimeSize": [
+      1147,
+      620
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9806
+    ]
+  },
+  {
+    "id": "world/interactive/universal_gate",
+    "sourcePath": "art/source/generated_originals/world/interactive/universal_gate.png",
+    "runtimePath": "public/assets/world/interactive/universal_gate.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      143,
+      75,
+      1388,
+      902
+    ],
+    "visibleSize": [
+      1245,
+      827
+    ],
+    "visibleWidthRatio": 0.8105,
+    "visibleHeightRatio": 0.8076,
+    "runtimeSize": [
+      1269,
+      851
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9859
+    ]
+  },
+  {
+    "id": "world/interactive/update_station",
+    "sourcePath": "art/source/generated_originals/world/interactive/update_station.png",
+    "runtimePath": "public/assets/world/interactive/update_station.png",
+    "canvas": [
+      1536,
+      1024
+    ],
+    "visibleBounds": [
+      350,
+      62,
+      1159,
+      888
+    ],
+    "visibleSize": [
+      809,
+      826
+    ],
+    "visibleWidthRatio": 0.5267,
+    "visibleHeightRatio": 0.8066,
+    "runtimeSize": [
+      833,
+      850
+    ],
+    "padding": 12,
+    "alphaThreshold": 16,
+    "bottomAnchorInRuntime": [
+      0.5,
+      0.9859
+    ]
+  }
+]

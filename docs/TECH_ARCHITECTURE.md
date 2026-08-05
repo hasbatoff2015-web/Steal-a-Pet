@@ -26,6 +26,7 @@ src/game/
   ui/           HUD и VictoryOverlay
   utils/        prototype textures и dev tools
   world/        WorldBuilder и физические world interactables
+    visual/     GroundPainter и data-driven decorative composition
 tests/          pure/data/system unit tests
 ```
 
@@ -124,3 +125,7 @@ Validation проверяет типы, уникальность и логиче
 `assets/assetManifest.ts` — единый типизированный реестр player, 14 pets, owner/guard roles, buildings, decor, interactives и optional structures. `assets/assetLoader.ts` загружает уникальные texture keys в `WorldScene.preload()`, применяет display/origin и безопасно возвращает prototype fallback. Детальная таблица и правила находятся в `ASSET_MANIFEST.md` и `VISUAL_RULES.md`.
 
 Player, Pet и OwnerNpc сохраняют прежние Arcade bodies, movement и state machines; production sprites влияют только на отображение. `WorldBuilder` аналогично отделяет PNG зданий, ворот, станций, общего загона и декора от существующей collision/navigation geometry.
+
+`scripts/analyze-asset-bounds.py` является offline development tool: сохраняет originals, измеряет meaningful alpha bounds и создаёт оптимизированные cropped runtime PNG без изменения художественного содержимого. `assetSizing.ts` вычисляет display size по одной ведущей оси и натуральному aspect ratio runtime frame.
+
+`world/visual/GroundPainter.ts` один раз создаёт пять малых `128×128` CanvasTexture и использует tileSprite regions; per-frame procedural rendering отсутствует. `WorldVisualConfig.ts` хранит только декоративную композицию деревьев, кустов, фонарей и машин, не collision/gameplay coordinates.

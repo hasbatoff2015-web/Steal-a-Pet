@@ -72,6 +72,9 @@ export class DeveloperTools {
       'z-index:9999',
       'font:700 11px Arial,sans-serif',
     ].join(';');
+    if (new URLSearchParams(window.location.search).get('capture') === '1') {
+      this.panel.style.display = 'none';
+    }
 
     this.stateOutput = document.createElement('output');
     this.stateOutput.dataset.testid = 'dev-state';

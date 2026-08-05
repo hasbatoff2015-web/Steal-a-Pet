@@ -33,7 +33,7 @@ function asset<TId extends string>(definition: VisualAssetDefinition<TId>): Visu
 export const PLAYER_ASSET = asset({
   id: 'player', textureKey: 'asset-player-world',
   path: '/assets/characters/player/player_world.png', category: 'PLAYER',
-  displayWidth: 69, displayHeight: 104, originX: 0.5, originY: 0.761,
+  displayWidth: 48, displayHeight: 90, originX: 0.5, originY: 0.98,
   offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'player',
 });
 
@@ -65,25 +65,25 @@ export const OWNER_ASSETS: Readonly<Record<string, VisualAssetDefinition>> = {
   'vip-owner-purple': asset({ id: 'owner-vip-b', textureKey: 'asset-owner-vip-b', path: '/assets/characters/owners/owner_vip_b.png', category: 'OWNER', displayWidth: 60, displayHeight: 90, originX: 0.472, originY: 0.872, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'vip-owner-purple' }),
   'vip-guard-gold': asset({ id: 'guard-vip-gold', textureKey: 'asset-guard-vip', path: '/assets/characters/guards/guard_vip.png', category: 'GUARD', displayWidth: 59, displayHeight: 89, originX: 0.503, originY: 0.858, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'vip-guard-gold' }),
   'vip-guard-purple': asset({ id: 'guard-vip-purple', textureKey: 'asset-guard-vip', path: '/assets/characters/guards/guard_vip.png', category: 'GUARD', displayWidth: 59, displayHeight: 89, originX: 0.503, originY: 0.858, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'vip-guard-purple' }),
-  'vip-boss': asset({ id: 'owner-dragon-boss', textureKey: 'asset-owner-dragon-boss', path: '/assets/characters/owners/owner_dragon_boss.png', category: 'OWNER', displayWidth: 65, displayHeight: 98, originX: 0.518, originY: 0.883, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'vip-boss' }),
+  'vip-boss': asset({ id: 'owner-dragon-boss', textureKey: 'asset-owner-dragon-boss', path: '/assets/characters/owners/owner_dragon_boss.png', category: 'OWNER', displayWidth: 51, displayHeight: 94, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'vip-boss' }),
 };
 
 export const BUILDING_ASSETS = {
   baseHouse: asset({ id: 'base-house', textureKey: 'asset-building-base-house', path: '/assets/world/buildings/base_house.png', category: 'BUILDING', displayWidth: 500, displayHeight: 333, originX: 0.526, originY: 0.852, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'prototype-building' }),
   starterHouse: asset({ id: 'starter-house', textureKey: 'asset-building-starter-house', path: '/assets/world/buildings/starter_house.png', category: 'BUILDING', displayWidth: 500, displayHeight: 333, originX: 0.51, originY: 0.808, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
-  parkPavilion: asset({ id: 'park-pavilion', textureKey: 'asset-building-park-pavilion', path: '/assets/world/buildings/park_pavilion.png', category: 'BUILDING', displayWidth: 390, displayHeight: 260, originX: 0.494, originY: 0.825, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'prototype-building' }),
-  hubBuilding: asset({ id: 'hub-building', textureKey: 'asset-building-hub', path: '/assets/world/buildings/hub_building.png', category: 'BUILDING', displayWidth: 430, displayHeight: 287, originX: 0.518, originY: 0.837, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
-  richEstate: asset({ id: 'rich-estate', textureKey: 'asset-building-rich-estate', path: '/assets/world/buildings/rich_estate.png', category: 'BUILDING', displayWidth: 560, displayHeight: 373, originX: 0.496, originY: 0.846, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
-  vipPalace: asset({ id: 'vip-palace', textureKey: 'asset-building-vip-palace', path: '/assets/world/buildings/vip_palace.png', category: 'BUILDING', displayWidth: 520, displayHeight: 347, originX: 0.528, originY: 0.82, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
+  parkPavilion: asset({ id: 'park-pavilion', textureKey: 'asset-building-park-pavilion', path: '/assets/world/buildings/park_pavilion.png', category: 'BUILDING', displayWidth: 460, displayHeight: 307, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'prototype-building' }),
+  hubBuilding: asset({ id: 'hub-building', textureKey: 'asset-building-hub', path: '/assets/world/buildings/hub_building.png', category: 'BUILDING', displayWidth: 530, displayHeight: 353, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
+  richEstate: asset({ id: 'rich-estate', textureKey: 'asset-building-rich-estate', path: '/assets/world/buildings/rich_estate.png', category: 'BUILDING', displayWidth: 720, displayHeight: 480, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
+  vipPalace: asset({ id: 'vip-palace', textureKey: 'asset-building-vip-palace', path: '/assets/world/buildings/vip_palace.png', category: 'BUILDING', displayWidth: 860, displayHeight: 573, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-building' }),
 } as const;
 
 export const DECORATION_ASSETS = {
-  tree: asset({ id: 'tree-round', textureKey: 'asset-decoration-tree', path: '/assets/world/decorations/tree_round.png', category: 'DECORATION', displayWidth: 128, displayHeight: 85, originX: 0.505, originY: 0.854, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-tree' }),
+  tree: asset({ id: 'tree-round', textureKey: 'asset-decoration-tree', path: '/assets/world/decorations/tree_round.png', category: 'DECORATION', displayWidth: 120, displayHeight: 160, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-tree' }),
   bush: asset({ id: 'bush', textureKey: 'asset-decoration-bush', path: '/assets/world/decorations/bush.png', category: 'DECORATION', displayWidth: 100, displayHeight: 67, originX: 0.508, originY: 0.855, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'rich-hedge' }),
-  streetLamp: asset({ id: 'street-lamp', textureKey: 'asset-decoration-lamp', path: '/assets/world/decorations/street_lamp.png', category: 'DECORATION', displayWidth: 72, displayHeight: 96, originX: 0.488, originY: 0.903, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'rich-lamp' }),
-  bench: asset({ id: 'bench', textureKey: 'asset-decoration-bench', path: '/assets/world/decorations/bench.png', category: 'DECORATION', displayWidth: 110, displayHeight: 73, originX: 0.521, originY: 0.816, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-bench' }),
+  streetLamp: asset({ id: 'street-lamp', textureKey: 'asset-decoration-lamp', path: '/assets/world/decorations/street_lamp.png', category: 'DECORATION', displayWidth: 70, displayHeight: 120, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'rich-lamp' }),
+  bench: asset({ id: 'bench', textureKey: 'asset-decoration-bench', path: '/assets/world/decorations/bench.png', category: 'DECORATION', displayWidth: 130, displayHeight: 87, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'prototype-bench' }),
   fountain: asset({ id: 'fountain', textureKey: 'asset-decoration-fountain', path: '/assets/world/decorations/fountain.png', category: 'DECORATION', displayWidth: 180, displayHeight: 120, originX: 0.497, originY: 0.832, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'prototype-fountain' }),
-  car: asset({ id: 'generic-car', textureKey: 'asset-decoration-car', path: '/assets/world/decorations/generic_car.png', category: 'DECORATION', displayWidth: 125, displayHeight: 83, originX: 0.48, originY: 0.786, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'rich-car' }),
+  car: asset({ id: 'generic-car', textureKey: 'asset-decoration-car', path: '/assets/world/decorations/generic_car.png', category: 'DECORATION', displayWidth: 175, displayHeight: 117, originX: 0.5, originY: 0.98, offsetX: 0, offsetY: 0, flipAllowed: true, fallbackKey: 'rich-car' }),
   sign: asset({ id: 'blank-sign', textureKey: 'asset-decoration-sign', path: '/assets/world/decorations/blank_sign.png', category: 'DECORATION', displayWidth: 170, displayHeight: 113, originX: 0.495, originY: 0.859, offsetX: 0, offsetY: 0, flipAllowed: false, fallbackKey: 'prototype-sign' }),
 } as const;
 

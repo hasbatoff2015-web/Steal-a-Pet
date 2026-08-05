@@ -14,7 +14,7 @@ export class ProgressShortcut {
   public refresh(progression: ProgressionSystem): void {
     if (this.opened || !this.definition.requiredPetIds.every((id) => progression.isPetDelivered(id))) return;
     this.opened = true; this.barrier.destroy();
-    for (const visual of this.visuals) visual.setAlpha(0.18);
+    for (const visual of this.visuals) visual.setAlpha(0);
     this.label.setText(`${this.definition.displayName}\nКОРОТКИЙ ПУТЬ ОТКРЫТ`).setColor('#185938');
   }
   public isOpened(): boolean { return this.opened; }

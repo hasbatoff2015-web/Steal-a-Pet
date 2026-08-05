@@ -75,6 +75,8 @@ export class ZoneGate {
       this.scene.tweens.add({
         targets: this.statusLabel,
         scale: { from: 1.18, to: 1 },
+        alpha: { from: 1, to: 0 },
+        delay: 650,
         duration: 420,
         ease: 'Back.easeOut',
       });
@@ -83,6 +85,7 @@ export class ZoneGate {
       for (const visual of this.blockingVisuals) {
         visual.setAlpha(0);
       }
+      this.statusLabel.setVisible(false);
     }
   }
 

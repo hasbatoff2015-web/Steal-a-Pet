@@ -466,6 +466,31 @@ export class WorldScene extends Phaser.Scene {
       forceRoamingTired: (petId) => this.roamingSystem.forceTired(petId as RoamingPetId),
       resetRoaming: (petId) => this.roamingSystem.reset(petId as RoamingPetId),
     });
+    this.applyVisualQaView(new URLSearchParams(window.location.search).get('view'));
+  }
+
+  private applyVisualQaView(view: string | null): void {
+    if (view === null) return;
+    const petByView: Readonly<Record<string, PetId>> = {
+      park: 'cat',
+      hub: 'fox',
+      rich: 'panda',
+      vip: 'vip-a',
+    };
+    if (view === 'base') {
+      this.player.setPosition(this.world.playerDeliveryZone.centerX, this.world.playerDeliveryZone.centerY);
+    } else if (view === 'vipgate') {
+      this.player.setPosition(
+        this.world.vipEstateGateInteractionPoint.x,
+        this.world.vipEstateGateInteractionPoint.y,
+      );
+    } else if (view === 'dragon') {
+      this.player.setPosition(this.world.dragonNavigationMarker.x, this.world.dragonNavigationMarker.y + 90);
+    } else {
+      const petId = petByView[view];
+      if (petId !== undefined) this.teleportToPet(petId);
+    }
+    this.cameras.main.centerOn(this.player.x, this.player.y);
   }
 
   private teleportToPet(petId: PetId): void {

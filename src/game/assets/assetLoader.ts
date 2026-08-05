@@ -4,6 +4,7 @@ import {
   ALL_VISUAL_ASSETS,
   type VisualAssetDefinition,
 } from './assetManifest';
+import { calculateAssetDisplaySize } from './assetSizing';
 
 const warnedAssetIds = new Set<string>();
 
@@ -43,9 +44,15 @@ export function applyAssetDisplay(
   displayWidth = definition.displayWidth,
   displayHeight = definition.displayHeight,
 ): void {
+  const frameWidth = gameObject.frame.realWidth;
+  const frameHeight = gameObject.frame.realHeight;
+  const { width: targetWidth, height: targetHeight } = calculateAssetDisplaySize(
+    definition, frameWidth, frameHeight, displayWidth, displayHeight,
+  );
+  const cropPadding = 12;
   gameObject
-    .setDisplaySize(displayWidth, displayHeight)
-    .setOrigin(definition.originX, definition.originY);
+    .setDisplaySize(targetWidth, targetHeight)
+    .setOrigin(0.5, 1 - cropPadding / frameHeight);
   if (definition.tint !== undefined) gameObject.setTint(definition.tint);
 }
 

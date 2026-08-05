@@ -85,3 +85,11 @@
 - Подключены production-изображения игрока, всех 14 питомцев, текущих owner/guard roles, зданий, интерактивных объектов и декора.
 - Один общий pet pen обслуживает все 14 base slots; station и universal gate переиспользуются для существующих функциональных вариантов.
 - До поставки bridge, fence segment и security booth остаются процедурные изображения; это не блокирует runtime.
+
+### 2026-08-05 — Этап 7B: visible-bounds scale и world presentation
+
+- Исходные PNG отделены от cropped runtime assets; alpha bounds анализируются воспроизводимым offline script без runtime image-processing dependency.
+- Масштаб production visual определяется по видимому объекту и одной целевой оси с обязательным сохранением aspect ratio; colliders/navigation остаются независимыми.
+- Земля переведена на малые повторяемые generated textures, а плотность районов создаётся data-driven группами переиспользуемого декора.
+- Постоянные prototype labels/outlines скрыты; perspective gate PNG больше не поворачивается на 90°, perpendicular gates остаются программными.
+- World size, gameplay coordinates, economy, save v3, AI/A*, routes, prerequisites и victory не изменены.
