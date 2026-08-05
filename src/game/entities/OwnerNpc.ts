@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 
 import type { ChaseParameters, WorldPoint } from '../data/encounters';
+import { getOwnerAssetDefinition } from '../assets/assetManifest';
+import { applyAssetDisplay, resolveVisualTexture } from '../assets/assetLoader';
 
 const RETURN_WAYPOINT_REACHED_DISTANCE = 20;
 const RETURN_HOME_REACHED_DISTANCE = 12;
@@ -28,6 +30,8 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
   private lastReturnDistance = Number.POSITIVE_INFINITY;
   private visualResetStartedAt = 0;
   private nextIdleVisualAt = 0;
+  private readonly visualScaleX: number;
+  private readonly visualScaleY: number;
 
   public constructor(
     scene: Phaser.Scene,
@@ -37,7 +41,9 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     returnRoutes: readonly (readonly WorldPoint[])[] = [],
     private readonly returnResetAfterMs?: number,
   ) {
-    super(scene, home.x, home.y, visualKey);
+    const visual = getOwnerAssetDefinition(visualKey);
+    const texture = resolveVisualTexture(scene, visual);
+    super(scene, home.x + visual.offsetX, home.y + visual.offsetY, texture.textureKey);
 
     this.home = home.clone();
     this.returnRoutes = returnRoutes.map(
@@ -48,11 +54,23 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setOrigin(0.5, 0.62);
+    if (texture.production) {
+      applyAssetDisplay(this, visual);
+    } else {
+      this.setOrigin(0.5, 0.62);
+    }
+    this.visualScaleX = this.scaleX;
+    this.visualScaleY = this.scaleY;
     this.setCollideWorldBounds(true);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(19, 7, 10);
+    const colliderRadius = 19;
+    const colliderCenterYOffset = -7;
+    body.setCircle(
+      colliderRadius,
+      this.displayWidth / 2 - colliderRadius,
+      this.originY * this.displayHeight + colliderCenterYOffset - colliderRadius,
+    );
     this.shadow.setDepth(home.y - 2);
     this.setDepth(home.y);
   }
@@ -77,7 +95,7 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
     this.visualResetStartedAt = 0;
     this.setAlpha(1);
     this.shadow.setAlpha(0.28);
-    this.setScale(1);
+    this.setScale(this.visualScaleX, this.visualScaleY);
     this.setTint(0xffd1cc);
   }
 
@@ -107,7 +125,8 @@ export class OwnerNpc extends Phaser.Physics.Arcade.Sprite {
         return;
       }
       this.nextIdleVisualAt = this.scene.time.now + IDLE_VISUAL_INTERVAL_MS;
-      this.setScale(1 + Math.sin(this.scene.time.now / 350) * 0.025);
+      const idleScale = 1 + Math.sin(this.scene.time.now / 350) * 0.025;
+      this.setScale(this.visualScaleX * idleScale, this.visualScaleY * idleScale);
       return;
     }
 

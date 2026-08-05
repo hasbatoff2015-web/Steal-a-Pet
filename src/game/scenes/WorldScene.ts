@@ -34,6 +34,7 @@ import { VictoryOverlay } from '../ui/VictoryOverlay';
 import { createPrototypeTextures } from '../utils/createPrototypeTextures';
 import { DeveloperTools } from '../utils/DeveloperTools';
 import { WorldBuilder, type WorldBuildResult } from '../world/WorldBuilder';
+import { preloadVisualAssets } from '../assets/assetLoader';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Player;
@@ -64,6 +65,10 @@ export class WorldScene extends Phaser.Scene {
 
   public constructor() {
     super({ key: 'WorldScene' });
+  }
+
+  public preload(): void {
+    preloadVisualAssets(this);
   }
 
   public create(): void {
@@ -274,7 +279,7 @@ export class WorldScene extends Phaser.Scene {
     const roamingCount = this.progression.getRoamingPetCount();
     if (roamingCount !== this.lastRoamingPenCount) {
       this.lastRoamingPenCount = roamingCount;
-      this.world.roamingPenLabel.setText(`СВОБОДНЫЙ ЗАГОН · ${roamingCount}/6`);
+      this.world.roamingPenLabel.setText(`ОБЩИЙ ЗАГОН · БРОДЯЧИЕ ${roamingCount}/6`);
     }
     this.petTrackerSystem.update(
       time,

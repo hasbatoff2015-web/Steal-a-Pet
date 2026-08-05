@@ -16,6 +16,7 @@ GameConfig использует resize, три active touch pointers и loop tar
 
 ```text
 src/game/
+  assets/       typed production asset manifest, loader and safe fallbacks
   config/       Phaser и gameplay constants
   data/         pets, encounters, roaming, upgrades, zones, shortcuts, layout, prerequisites
   entities/     Player, Pet, OwnerNpc
@@ -112,8 +113,14 @@ Validation проверяет типы, уникальность и логиче
 
 ## Реализовано
 
-Восемь heist encounters, шесть roaming captures, 14 base pets, gates/shortcuts, шесть upgrades в трёх ветках, save migration, victory/post-victory collection, desktop/mobile input, debug/playtest tooling, tests и prototype graphics.
+Восемь heist encounters, шесть roaming captures, 14 base pets, gates/shortcuts, шесть upgrades в трёх ветках, save migration, victory/post-victory collection, desktop/mobile input, debug/playtest tooling, tests и production PNG visual layer с prototype fallback.
 
 ## Не реализовано
 
-Production art, audio, Yandex SDK, ads, cloud save, analytics upload, localization framework, minimap, navmesh, combat, inventory и финальная device-performance сертификация.
+Отсутствующие production PNG моста, сегмента ограды и будки охраны; sprite-sheet анимации, audio, Yandex SDK, ads, cloud save, analytics upload, localization framework, minimap, navmesh, combat, inventory и финальная device-performance сертификация.
+
+## Production asset pipeline
+
+`assets/assetManifest.ts` — единый типизированный реестр player, 14 pets, owner/guard roles, buildings, decor, interactives и optional structures. `assets/assetLoader.ts` загружает уникальные texture keys в `WorldScene.preload()`, применяет display/origin и безопасно возвращает prototype fallback. Детальная таблица и правила находятся в `ASSET_MANIFEST.md` и `VISUAL_RULES.md`.
+
+Player, Pet и OwnerNpc сохраняют прежние Arcade bodies, movement и state machines; production sprites влияют только на отображение. `WorldBuilder` аналогично отделяет PNG зданий, ворот, станций, общего загона и декора от существующей collision/navigation geometry.

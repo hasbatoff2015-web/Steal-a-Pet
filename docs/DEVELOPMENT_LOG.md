@@ -77,3 +77,11 @@
 - Победа выводится из доставки `dragon`. Итоговый overlay показывает run stats; после него игрок может продолжить free roam либо подтвердить очистку save и начать заново.
 - Save остаётся `saveVersion: 2`; run stats добавлены optional-полем, а корректные saves Этапа 4 остаются совместимыми.
 - Следующий этап — один визуальный vertical slice и проверка asset pipeline. Полное визуальное производство и замена животных на оригинальные brainrot-персонажи не начинаются автоматически.
+
+### 2026-08-05 — Этап 7A: production asset pipeline
+
+- Введён единый typed manifest для визуальных PNG и централизованный preload с безопасным prototype fallback.
+- Визуальный слой отделён от Arcade collision geometry, navigation blockers, gameplay ids и save state: замена PNG не меняет правила игры.
+- Подключены production-изображения игрока, всех 14 питомцев, текущих owner/guard roles, зданий, интерактивных объектов и декора.
+- Один общий pet pen обслуживает все 14 base slots; station и universal gate переиспользуются для существующих функциональных вариантов.
+- До поставки bridge, fence segment и security booth остаются процедурные изображения; это не блокирует runtime.

@@ -11,7 +11,7 @@ export class ZoneGate {
     public readonly definition: ZoneGateDefinition,
     private readonly interactionPoint: Phaser.Math.Vector2,
     private readonly barrier: Phaser.GameObjects.Rectangle,
-    private readonly blockingVisuals: readonly Phaser.GameObjects.Rectangle[],
+    private readonly blockingVisuals: readonly GateVisual[],
     private readonly statusLabel: Phaser.GameObjects.Text,
   ) {}
 
@@ -111,3 +111,8 @@ export class ZoneGate {
     }
   }
 }
+
+type GateVisual = Phaser.GameObjects.GameObject & {
+  setAlpha(value: number): GateVisual;
+  setScale(x: number, y?: number): GateVisual;
+};

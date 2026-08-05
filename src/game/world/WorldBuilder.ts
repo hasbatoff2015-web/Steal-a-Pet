@@ -15,6 +15,14 @@ import { UpgradeStation } from './UpgradeStation';
 import { ProgressShortcut } from './ProgressShortcut';
 import { ZoneGate } from './ZoneGate';
 import type { NavigationBlocker } from '../systems/ChaseNavigation';
+import {
+  BUILDING_ASSETS,
+  DECORATION_ASSETS,
+  INTERACTIVE_ASSETS,
+  STRUCTURE_ASSETS,
+  type VisualAssetDefinition,
+} from '../assets/assetManifest';
+import { applyAssetDisplay, resolveVisualTexture } from '../assets/assetLoader';
 
 export interface WorldBuildResult extends PrototypeWorldLayout {
   obstacles: Phaser.Physics.Arcade.StaticGroup;
@@ -51,6 +59,9 @@ interface BuildingOptions {
   color: number;
   roofColor: number;
   label: string;
+  visualId: keyof typeof BUILDING_ASSETS;
+  flipX?: boolean;
+  tint?: number;
 }
 
 export class WorldBuilder {
@@ -490,15 +501,25 @@ export class WorldBuilder {
     this.addInvisibleObstacle(0, 900, 770, 210);
     this.addInvisibleObstacle(1030, 900, 650, 210);
 
-    const bridge = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
-    bridge.fillStyle(0x6f4f36);
-    bridge.fillRoundedRect(770, 875, 260, 260, 12);
-    bridge.fillStyle(0xd6a76a);
-    bridge.fillRect(792, 875, 216, 260);
-    bridge.lineStyle(5, 0x8f653f, 0.8);
+    const bridgeAsset = this.createAssetImage(
+      STRUCTURE_ASSETS.bridge,
+      900,
+      1005,
+      260,
+      260,
+      DEPTH.ground + 5,
+    );
+    if (bridgeAsset === null) {
+      const bridge = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+      bridge.fillStyle(0x6f4f36);
+      bridge.fillRoundedRect(770, 875, 260, 260, 12);
+      bridge.fillStyle(0xd6a76a);
+      bridge.fillRect(792, 875, 216, 260);
+      bridge.lineStyle(5, 0x8f653f, 0.8);
 
-    for (let y = 890; y <= 1120; y += 30) {
-      bridge.lineBetween(792, y, 1008, y);
+      for (let y = 890; y <= 1120; y += 30) {
+        bridge.lineBetween(792, y, 1008, y);
+      }
     }
 
     this.scene.add
@@ -516,16 +537,20 @@ export class WorldBuilder {
 
   private createParkGate(): ZoneGate {
     const { x, y } = PROTOTYPE_LAYOUT.parkGatePosition;
+    const gateVisual = this.createAssetImage(
+      INTERACTIVE_ASSETS.universalGate, x, y + 40, 245, 163, y + 3, 0x6fcf8c,
+    );
+    const prototypeAlpha = gateVisual === null ? 1 : 0.001;
     const leftPost = this.scene.add
-      .rectangle(x - 102, y, 28, 82, 0x315f4c)
+      .rectangle(x - 102, y, 28, 82, 0x315f4c, prototypeAlpha)
       .setStrokeStyle(4, 0xe8ffdd, 0.9)
       .setDepth(y + 2);
     const rightPost = this.scene.add
-      .rectangle(x + 102, y, 28, 82, 0x315f4c)
+      .rectangle(x + 102, y, 28, 82, 0x315f4c, prototypeAlpha)
       .setStrokeStyle(4, 0xe8ffdd, 0.9)
       .setDepth(y + 2);
     const crossbar = this.scene.add
-      .rectangle(x, y, 214, 28, 0xe75555)
+      .rectangle(x, y, 214, 28, 0xe75555, prototypeAlpha)
       .setStrokeStyle(4, 0xffffff, 0.9)
       .setDepth(y + 3);
 
@@ -551,7 +576,7 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.parkGateInteractionPoint.y,
       ),
       barrier,
-      [leftPost, rightPost, crossbar],
+      gateVisual === null ? [leftPost, rightPost, crossbar] : [gateVisual],
       statusLabel,
     );
   }
@@ -569,19 +594,30 @@ export class WorldBuilder {
     this.scene.add
       .ellipse(x + 8, y + 24, 118, 36, 0x18324a, 0.2)
       .setDepth(y - 2);
+    const stationVisual = this.createAssetImage(
+      INTERACTIVE_ASSETS.upgradeStation,
+      x,
+      y + 28,
+      145,
+      97,
+      y,
+      accentColor,
+    );
     const bench = this.scene.add
-      .rectangle(x, y, 112, 54, 0x99633e)
-      .setStrokeStyle(6, 0xffd793, 0.92)
+      .rectangle(x, y, 112, 54, 0x99633e, stationVisual === null ? 1 : 0.001)
       .setDepth(y);
+    if (stationVisual === null) bench.setStrokeStyle(6, 0xffd793, 0.92);
     this.addStaticObstacle(bench);
-    this.scene.add
-      .rectangle(x - 34, y - 34, 16, 42, accentColor)
-      .setStrokeStyle(3, 0xffffff, 0.7)
-      .setDepth(y + 1);
-    this.scene.add
-      .rectangle(x + 34, y - 28, 30, 28, 0x76e69b)
-      .setStrokeStyle(3, 0xffffff, 0.7)
-      .setDepth(y + 1);
+    if (stationVisual === null) {
+      this.scene.add
+        .rectangle(x - 34, y - 34, 16, 42, accentColor)
+        .setStrokeStyle(3, 0xffffff, 0.7)
+        .setDepth(y + 1);
+      this.scene.add
+        .rectangle(x + 34, y - 28, 30, 28, 0x76e69b)
+        .setStrokeStyle(3, 0xffffff, 0.7)
+        .setDepth(y + 1);
+    }
 
     const statusLabel = this.scene.add
       .text(x, y - 82, `${branchLabel}\nОТКРОЕТСЯ ПОЗЖЕ`, {
@@ -605,16 +641,28 @@ export class WorldBuilder {
 
   private createCentralHubGate(): ZoneGate {
     const { x, y } = PROTOTYPE_LAYOUT.centralHubGatePosition;
+    const gateVisual = this.createAssetImage(
+      INTERACTIVE_ASSETS.universalGate,
+      x + 12,
+      y,
+      245,
+      163,
+      y + 3,
+      0x70c9e8,
+      false,
+      Math.PI / 2,
+    );
+    const prototypeAlpha = gateVisual === null ? 1 : 0.001;
     const upperPost = this.scene.add
-      .rectangle(x, y - 92, 38, 46, 0x355f78)
+      .rectangle(x, y - 92, 38, 46, 0x355f78, prototypeAlpha)
       .setStrokeStyle(5, 0xffffff, 0.78)
       .setDepth(y - 40);
     const lowerPost = this.scene.add
-      .rectangle(x, y + 92, 38, 46, 0x355f78)
+      .rectangle(x, y + 92, 38, 46, 0x355f78, prototypeAlpha)
       .setStrokeStyle(5, 0xffffff, 0.78)
       .setDepth(y + 115);
     const crossbar = this.scene.add
-      .rectangle(x, y, 28, 164, 0xe75555)
+      .rectangle(x, y, 28, 164, 0xe75555, prototypeAlpha)
       .setStrokeStyle(4, 0xffffff, 0.9)
       .setDepth(y + 3);
     const statusLabel = this.scene.add
@@ -639,7 +687,7 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.centralHubGateInteractionPoint.y,
       ),
       barrier,
-      [upperPost, lowerPost, crossbar],
+      gateVisual === null ? [upperPost, lowerPost, crossbar] : [gateVisual],
       statusLabel,
     );
   }
@@ -659,14 +707,25 @@ export class WorldBuilder {
       color: 0xfff1b8,
       roofColor: 0xef6f6c,
       label: 'ДОМ',
+      visualId: 'baseHouse',
     });
 
-    const delivery = this.scene.add.graphics().setDepth(DEPTH.ground + 6);
     const zone = PROTOTYPE_LAYOUT.playerDeliveryZone;
-    delivery.fillStyle(0x64d98b, 0.35);
-    delivery.fillRoundedRect(zone.x, zone.y, zone.width, zone.height, 24);
-    delivery.lineStyle(8, 0xffffff, 0.9);
-    delivery.strokeRoundedRect(zone.x, zone.y, zone.width, zone.height, 24);
+    const deliveryPad = this.createAssetImage(
+      INTERACTIVE_ASSETS.deliveryPad,
+      zone.x + zone.width / 2,
+      zone.y + zone.height,
+      280,
+      187,
+      DEPTH.ground + 6,
+    );
+    if (deliveryPad === null) {
+      const delivery = this.scene.add.graphics().setDepth(DEPTH.ground + 6);
+      delivery.fillStyle(0x64d98b, 0.35);
+      delivery.fillRoundedRect(zone.x, zone.y, zone.width, zone.height, 24);
+      delivery.lineStyle(8, 0xffffff, 0.9);
+      delivery.strokeRoundedRect(zone.x, zone.y, zone.width, zone.height, 24);
+    }
 
     this.scene.add
       .text(zone.x + zone.width / 2, zone.y + 26, 'МОЯ БАЗА\nДОСТАВКА', {
@@ -679,12 +738,22 @@ export class WorldBuilder {
       .setOrigin(0.5, 0)
       .setDepth(DEPTH.groundLabels);
 
-    const pen = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
-    pen.fillStyle(0xaee6a5, 0.78);
-    pen.fillRoundedRect(250, 2430, 360, 300, 28);
-    pen.lineStyle(8, 0x5b9a52, 0.94);
-    pen.strokeRoundedRect(250, 2430, 360, 300, 28);
-    const penLabel = this.scene.add.text(430, 2460, 'СВОБОДНЫЙ ЗАГОН · 0/6', {
+    const penVisual = this.createAssetImage(
+      INTERACTIVE_ASSETS.petPen,
+      550,
+      2630,
+      1050,
+      900,
+      DEPTH.ground + 5,
+    );
+    if (penVisual === null) {
+      const pen = this.scene.add.graphics().setDepth(DEPTH.ground + 5);
+      pen.fillStyle(0xaee6a5, 0.78);
+      pen.fillRoundedRect(210, 2090, 740, 560, 28);
+      pen.lineStyle(8, 0x5b9a52, 0.94);
+      pen.strokeRoundedRect(210, 2090, 740, 560, 28);
+    }
+    const penLabel = this.scene.add.text(430, 2460, 'ОБЩИЙ ЗАГОН · БРОДЯЧИЕ 0/6', {
       fontFamily: 'Arial, sans-serif', fontSize: '17px', fontStyle: 'bold',
       color: '#255d31', backgroundColor: '#f3ffe0dd', padding: { x: 9, y: 5 },
     }).setOrigin(0.5).setDepth(DEPTH.groundLabels);
@@ -706,6 +775,7 @@ export class WorldBuilder {
       color: 0xffd9bd,
       roofColor: 0xb95056,
       label: 'ЧУЖОЙ ДОМ',
+      visualId: 'starterHouse',
     });
 
     this.scene.add
@@ -787,6 +857,7 @@ export class WorldBuilder {
       color: 0xffedb6,
       roofColor: 0x5e9b63,
       label: 'ПАВИЛЬОН',
+      visualId: 'parkPavilion',
     });
 
     this.scene.add
@@ -802,6 +873,9 @@ export class WorldBuilder {
   }
 
   private drawParkBoundary(): void {
+    // The production fence is optional in Stage 7A. Resolving it here keeps the
+    // existing collision-backed hedge as the safe visual fallback.
+    this.createAssetImage(STRUCTURE_ASSETS.fence, 1675, 260, 96, 42, DEPTH.ground + 8);
     const hedge = this.scene.add.graphics().setDepth(DEPTH.ground + 8);
     hedge.fillStyle(0x397f4c, 0.98);
     hedge.fillRoundedRect(1640, 0, 70, 555, 22);
@@ -846,16 +920,21 @@ export class WorldBuilder {
     plaza.fillCircle(2110, 1060, 260);
     plaza.lineStyle(12, 0xc69d6e, 0.9);
     plaza.strokeCircle(2110, 1060, 260);
-    plaza.fillStyle(0x55b9dc, 0.98);
-    plaza.fillCircle(2110, 1060, 104);
-    plaza.lineStyle(10, 0xe9fbff, 0.86);
-    plaza.strokeCircle(2110, 1060, 104);
-    plaza.fillStyle(0xffe18b, 1);
-    plaza.fillCircle(2110, 1060, 26);
+    const centralFountain = this.createAssetImage(
+      DECORATION_ASSETS.fountain, 2110, 1120, 210, 140, 1120,
+    );
+    if (centralFountain === null) {
+      plaza.fillStyle(0x55b9dc, 0.98);
+      plaza.fillCircle(2110, 1060, 104);
+      plaza.lineStyle(10, 0xe9fbff, 0.86);
+      plaza.strokeCircle(2110, 1060, 104);
+      plaza.fillStyle(0xffe18b, 1);
+      plaza.fillCircle(2110, 1060, 26);
+    }
     this.addInvisibleObstacle(2020, 970, 180, 180);
 
     this.scene.add
-      .text(2110, 1060, '⛲', {
+      .text(2110, 1060, centralFountain === null ? '⛲' : '', {
         fontFamily: 'Arial, sans-serif',
         fontSize: '38px',
         color: '#ffffff',
@@ -871,6 +950,7 @@ export class WorldBuilder {
       color: 0xffefc7,
       roofColor: 0xd26c54,
       label: 'КАФЕ',
+      visualId: 'hubBuilding',
     });
     this.addBuilding({
       x: 2480,
@@ -880,6 +960,9 @@ export class WorldBuilder {
       color: 0xdff5ff,
       roofColor: 0x428aaf,
       label: 'МАГАЗИН',
+      visualId: 'hubBuilding',
+      flipX: true,
+      tint: 0xdff5ff,
     });
     this.addBuilding({
       x: 1870,
@@ -889,6 +972,8 @@ export class WorldBuilder {
       color: 0xffe5ae,
       roofColor: 0xbf7a38,
       label: 'ПОЧТА',
+      visualId: 'hubBuilding',
+      tint: 0xffe6b5,
     });
 
     for (const [x, y] of [
@@ -897,11 +982,14 @@ export class WorldBuilder {
       [2320, 1140],
       [2480, 1320],
     ] as const) {
-      this.scene.add.rectangle(x, y, 12, 68, 0x354c5e).setDepth(y);
-      this.scene.add
-        .circle(x, y - 38, 14, 0xffe99a, 0.95)
-        .setStrokeStyle(4, 0xffffff, 0.65)
-        .setDepth(y + 1);
+      const lamp = this.createAssetImage(DECORATION_ASSETS.streetLamp, x, y, 72, 96, y);
+      if (lamp === null) {
+        this.scene.add.rectangle(x, y, 12, 68, 0x354c5e).setDepth(y);
+        this.scene.add
+          .circle(x, y - 38, 14, 0xffe99a, 0.95)
+          .setStrokeStyle(4, 0xffffff, 0.65)
+          .setDepth(y + 1);
+      }
     }
 
     for (const [x, y, color] of [
@@ -909,10 +997,13 @@ export class WorldBuilder {
       [2400, 1030, 0x7bdc86],
       [2020, 1310, 0x8d7cff],
     ] as const) {
-      this.scene.add
-        .ellipse(x, y, 118, 46, color, 0.85)
-        .setStrokeStyle(5, 0xffffff, 0.65)
-        .setDepth(y);
+      const bush = this.createAssetImage(DECORATION_ASSETS.bush, x, y, 118, 79, y, color);
+      if (bush === null) {
+        this.scene.add
+          .ellipse(x, y, 118, 46, color, 0.85)
+          .setStrokeStyle(5, 0xffffff, 0.65)
+          .setDepth(y);
+      }
     }
   }
 
@@ -931,6 +1022,8 @@ export class WorldBuilder {
       color: 0xffeed2,
       roofColor: 0xc75c45,
       label: 'ТЕРРАСА',
+      visualId: 'hubBuilding',
+      flipX: true,
     });
 
     this.scene.add
@@ -973,16 +1066,28 @@ export class WorldBuilder {
 
   private createRichDistrictGate(): ZoneGate {
     const { x, y } = PROTOTYPE_LAYOUT.richDistrictGatePosition;
+    const gateVisual = this.createAssetImage(
+      INTERACTIVE_ASSETS.universalGate,
+      x + 12,
+      y,
+      275,
+      183,
+      y + 3,
+      0xe3c766,
+      false,
+      Math.PI / 2,
+    );
+    const prototypeAlpha = gateVisual === null ? 1 : 0.001;
     const upperPost = this.scene.add
-      .rectangle(x, y - 112, 44, 66, 0xf0d37b)
+      .rectangle(x, y - 112, 44, 66, 0xf0d37b, prototypeAlpha)
       .setStrokeStyle(6, 0xffffff, 0.88)
       .setDepth(y - 68);
     const lowerPost = this.scene.add
-      .rectangle(x, y + 112, 44, 66, 0xf0d37b)
+      .rectangle(x, y + 112, 44, 66, 0xf0d37b, prototypeAlpha)
       .setStrokeStyle(6, 0xffffff, 0.88)
       .setDepth(y + 150);
     const crossbar = this.scene.add
-      .rectangle(x, y, 30, 218, 0xd95755)
+      .rectangle(x, y, 30, 218, 0xd95755, prototypeAlpha)
       .setStrokeStyle(5, 0xffffff, 0.9)
       .setDepth(y + 3);
     const statusLabel = this.scene.add
@@ -1007,7 +1112,7 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.richDistrictGateInteractionPoint.y,
       ),
       barrier,
-      [upperPost, lowerPost, crossbar],
+      gateVisual === null ? [upperPost, lowerPost, crossbar] : [gateVisual],
       statusLabel,
     );
   }
@@ -1051,7 +1156,7 @@ export class WorldBuilder {
       [3460, 1550],
       [3650, 1760],
     ] as const) {
-      this.scene.add.image(x, y, 'rich-lamp').setDepth(y);
+      this.createAssetImage(DECORATION_ASSETS.streetLamp, x, y, 72, 96, y);
     }
     for (const [x, y, flip] of [
       [2800, 1020, false],
@@ -1059,7 +1164,7 @@ export class WorldBuilder {
       [2830, 2360, true],
       [3650, 2390, false],
     ] as const) {
-      this.scene.add.image(x, y, 'rich-car').setFlipX(flip).setDepth(y);
+      this.createAssetImage(DECORATION_ASSETS.car, x, y, 125, 83, y, undefined, flip);
     }
     for (const [x, y] of [
       [2830, 1570],
@@ -1067,7 +1172,7 @@ export class WorldBuilder {
       [3380, 1510],
       [3540, 1630],
     ] as const) {
-      this.scene.add.image(x, y, 'rich-flowerbed').setDepth(y);
+      this.createAssetImage(DECORATION_ASSETS.bush, x, y, 120, 80, y, 0xf08ba8);
     }
   }
 
@@ -1085,13 +1190,19 @@ export class WorldBuilder {
       color: 0xfffbec,
       roofColor: 0xd8b957,
       label: 'ESTATE A',
+      visualId: 'richEstate',
     });
-    const fountain = this.scene.add
-      .circle(3090, 1260, 66, 0x65c7df, 0.96)
-      .setStrokeStyle(10, 0xffffff, 0.85)
+    const fountainCollider = this.scene.add
+      .circle(3090, 1260, 66, 0x65c7df, 0.001)
       .setDepth(1260);
-    this.addStaticObstacle(fountain);
-    this.scene.add.circle(3090, 1260, 20, 0xf4d16e).setDepth(1261);
+    this.addStaticObstacle(fountainCollider);
+    const fountain = this.createAssetImage(
+      DECORATION_ASSETS.fountain, 3090, 1305, 180, 120, 1305,
+    );
+    if (fountain === null) {
+      fountainCollider.setAlpha(0.96).setStrokeStyle(10, 0xffffff, 0.85);
+      this.scene.add.circle(3090, 1260, 20, 0xf4d16e).setDepth(1261);
+    }
     for (const [x, y] of [
       [2860, 1365],
       [2960, 1365],
@@ -1126,14 +1237,20 @@ export class WorldBuilder {
       color: 0xfffbf2,
       roofColor: 0x6c55a3,
       label: 'ESTATE B',
+      visualId: 'richEstate',
+      flipX: true,
+      tint: 0xe8ddff,
     });
     const pool = this.scene.add
       .rectangle(3255, 1905, 215, 125, 0x4dbddd, 0.96)
       .setStrokeStyle(9, 0xecffff, 0.9)
       .setDepth(1905);
     this.addStaticObstacle(pool);
+    const boothAsset = this.createAssetImage(
+      INTERACTIVE_ASSETS.securityBooth, 3205, 2230, 105, 90, 2225,
+    );
     const guardBooth = this.scene.add
-      .rectangle(3205, 2200, 92, 72, 0xf2dfb6)
+      .rectangle(3205, 2200, 92, 72, 0xf2dfb6, boothAsset === null ? 1 : 0.001)
       .setStrokeStyle(6, 0x7b6650, 0.9)
       .setDepth(2225);
     this.addStaticObstacle(guardBooth);
@@ -1168,16 +1285,20 @@ export class WorldBuilder {
 
   private createVipEstateGate(): ZoneGate {
     const { x, y } = PROTOTYPE_LAYOUT.vipEstateGatePosition;
+    const gateVisual = this.createAssetImage(
+      INTERACTIVE_ASSETS.universalGate, x, y + 42, 285, 190, y + 3, 0xaa7bd0,
+    );
+    const prototypeAlpha = gateVisual === null ? 1 : 0.001;
     const leftPost = this.scene.add
-      .rectangle(x - 112, y, 42, 112, 0xd7ad4f)
+      .rectangle(x - 112, y, 42, 112, 0xd7ad4f, prototypeAlpha)
       .setStrokeStyle(6, 0xfff2bc, 0.96)
       .setDepth(y + 2);
     const rightPost = this.scene.add
-      .rectangle(x + 112, y, 42, 112, 0xd7ad4f)
+      .rectangle(x + 112, y, 42, 112, 0xd7ad4f, prototypeAlpha)
       .setStrokeStyle(6, 0xfff2bc, 0.96)
       .setDepth(y + 2);
     const crossbar = this.scene.add
-      .rectangle(x, y, 224, 36, 0x8152b5)
+      .rectangle(x, y, 224, 36, 0x8152b5, prototypeAlpha)
       .setStrokeStyle(6, 0xffdf72, 0.96)
       .setDepth(y + 3);
     const statusLabel = this.scene.add
@@ -1207,7 +1328,7 @@ export class WorldBuilder {
         PROTOTYPE_LAYOUT.vipEstateGateInteractionPoint.y,
       ),
       barrier,
-      [leftPost, rightPost, crossbar],
+      gateVisual === null ? [leftPost, rightPost, crossbar] : [gateVisual],
       statusLabel,
     );
   }
@@ -1283,6 +1404,8 @@ export class WorldBuilder {
       color: 0xf8efff,
       roofColor: 0x7650a4,
       label: 'VIP TOWER',
+      visualId: 'vipPalace',
+      flipX: true,
     });
 
     for (const [x, y, color] of [
@@ -1367,6 +1490,8 @@ export class WorldBuilder {
       color: 0xeadcff,
       roofColor: 0x6e3c98,
       label: 'DRAGON COURTYARD',
+      visualId: 'vipPalace',
+      tint: 0xe8d6ff,
     });
 
     this.addInvisibleObstacle(3030, 45, 28, 385);
@@ -1455,10 +1580,13 @@ export class WorldBuilder {
     ];
 
     for (const [x, y] of bushes) {
-      this.scene.add
-        .ellipse(x, y, 74, 42, 0x4d9e55, 0.95)
-        .setStrokeStyle(5, 0x367b43, 0.8)
-        .setDepth(y);
+      const bush = this.createAssetImage(DECORATION_ASSETS.bush, x, y, 82, 55, y);
+      if (bush === null) {
+        this.scene.add
+          .ellipse(x, y, 74, 42, 0x4d9e55, 0.95)
+          .setStrokeStyle(5, 0x367b43, 0.8)
+          .setDepth(y);
+      }
     }
   }
 
@@ -1471,47 +1599,69 @@ export class WorldBuilder {
   }
 
   private addZoneLabel(x: number, y: number, text: string): void {
-    this.scene.add
-      .text(x, y, text, {
+    const sign = this.createAssetImage(
+      DECORATION_ASSETS.sign,
+      x,
+      y + 42,
+      250,
+      167,
+      DEPTH.groundLabels - 1,
+    );
+    const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
         fontFamily: 'Arial, sans-serif',
-        fontSize: '32px',
+        fontSize: sign === null ? '32px' : '20px',
         fontStyle: 'bold',
         color: '#17324b',
-        backgroundColor: '#ffffffb8',
-        padding: { x: 16, y: 8 },
-      })
+        padding: sign === null ? { x: 16, y: 8 } : { x: 5, y: 3 },
+    };
+    if (sign === null) textStyle.backgroundColor = '#ffffffb8';
+    this.scene.add
+      .text(x, y, text, textStyle)
       .setOrigin(0.5)
       .setAlpha(0.78)
       .setDepth(DEPTH.groundLabels);
   }
 
   private addBuilding(options: BuildingOptions): void {
-    const { x, y, width, height, color, roofColor, label } = options;
+    const { x, y, width, height, color, roofColor, label, visualId } = options;
     const bottom = y + height / 2;
+    const assetDefinition = BUILDING_ASSETS[visualId];
+    const productionVisual = this.createAssetImage(
+      assetDefinition,
+      x,
+      bottom,
+      width * 1.58,
+      Math.max(height * 1.52, width * 1.05),
+      bottom,
+      options.tint,
+      options.flipX,
+    );
 
     this.scene.add
-      .rectangle(x + 14, y + 18, width, height, 0x18324a, 0.2)
+      .ellipse(x + 14, bottom + 8, width * 0.88, height * 0.3, 0x18324a, 0.2)
       .setDepth(bottom - 2);
 
     const body = this.scene.add
-      .rectangle(x, y, width, height, color)
-      .setStrokeStyle(8, 0xffffff, 0.65)
+      .rectangle(x, y, width, height, color, productionVisual === null ? 1 : 0.001)
       .setDepth(bottom);
+    if (productionVisual === null) body.setStrokeStyle(8, 0xffffff, 0.65);
     this.addStaticObstacle(body);
 
-    this.scene.add
-      .triangle(
-        x,
-        y - height * 0.42,
-        -width * 0.54,
-        height * 0.22,
-        0,
-        -height * 0.2,
-        width * 0.54,
-        height * 0.22,
-        roofColor,
-      )
-      .setDepth(bottom + 0.1);
+    if (productionVisual === null) {
+      this.scene.add
+        .triangle(
+          x,
+          y - height * 0.42,
+          -width * 0.54,
+          height * 0.22,
+          0,
+          -height * 0.2,
+          width * 0.54,
+          height * 0.22,
+          roofColor,
+        )
+        .setDepth(bottom + 0.1);
+    }
 
     this.scene.add
       .text(x, y + 12, label, {
@@ -1525,18 +1675,47 @@ export class WorldBuilder {
       .setDepth(bottom + 0.2);
   }
 
+  private createAssetImage(
+    definition: VisualAssetDefinition,
+    x: number,
+    y: number,
+    displayWidth = definition.displayWidth,
+    displayHeight = definition.displayHeight,
+    depth = y,
+    tint?: number,
+    flipX = false,
+    rotation = 0,
+  ): Phaser.GameObjects.Image | null {
+    const resolved = resolveVisualTexture(this.scene, definition);
+    if (!resolved.production) return null;
+    const image = this.scene.add.image(
+      x + definition.offsetX,
+      y + definition.offsetY,
+      resolved.textureKey,
+    );
+    applyAssetDisplay(image, definition, displayWidth, displayHeight);
+    image.setDepth(depth).setFlipX(flipX && definition.flipAllowed).setRotation(rotation);
+    if (tint !== undefined) image.setTint(tint);
+    return image;
+  }
+
   private addTree(x: number, y: number, scale: number): void {
     const depth = y;
-    this.scene.add
-      .ellipse(x + 8, y + 13, 78 * scale, 34 * scale, 0x18324a, 0.2)
-      .setDepth(depth - 2);
-    this.scene.add
-      .rectangle(x, y, 22 * scale, 54 * scale, 0x7a5130)
-      .setDepth(depth - 1);
-    this.scene.add
-      .circle(x, y - 35 * scale, 45 * scale, 0x3b9652)
-      .setStrokeStyle(7, 0x69bd64, 0.9)
-      .setDepth(depth);
+    const tree = this.createAssetImage(
+      DECORATION_ASSETS.tree, x, y, 128 * scale, 85 * scale, depth,
+    );
+    if (tree === null) {
+      this.scene.add
+        .ellipse(x + 8, y + 13, 78 * scale, 34 * scale, 0x18324a, 0.2)
+        .setDepth(depth - 2);
+      this.scene.add
+        .rectangle(x, y, 22 * scale, 54 * scale, 0x7a5130)
+        .setDepth(depth - 1);
+      this.scene.add
+        .circle(x, y - 35 * scale, 45 * scale, 0x3b9652)
+        .setStrokeStyle(7, 0x69bd64, 0.9)
+        .setDepth(depth);
+    }
 
     this.addInvisibleObstacle(
       x - 18 * scale,
@@ -1547,15 +1726,20 @@ export class WorldBuilder {
   }
 
   private addBench(x: number, y: number, rotation: number): void {
+    const benchAsset = this.createAssetImage(
+      DECORATION_ASSETS.bench, x, y, 110, 73, y, undefined, false, rotation,
+    );
     const bench = this.scene.add
-      .rectangle(x, y, 82, 24, 0xa5683f)
+      .rectangle(x, y, 82, 24, 0xa5683f, benchAsset === null ? 1 : 0.001)
       .setStrokeStyle(4, 0x6f442b, 0.95)
       .setRotation(rotation)
       .setDepth(y);
-    this.scene.add
-      .rectangle(x, y + 13, 72, 8, 0x704329)
-      .setRotation(rotation)
-      .setDepth(y - 1);
+    if (benchAsset === null) {
+      this.scene.add
+        .rectangle(x, y + 13, 72, 8, 0x704329)
+        .setRotation(rotation)
+        .setDepth(y - 1);
+    }
     this.addStaticObstacle(bench);
   }
 

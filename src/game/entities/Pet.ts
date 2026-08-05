@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 import { PET_CONFIG } from '../config/gameplay';
 import type { PetDefinition, PetId } from '../data/pets';
 import { PlayerPathHistory } from '../systems/PlayerPathHistory';
+import { PET_ASSETS } from '../assets/assetManifest';
+import { applyAssetDisplay, resolveVisualTexture } from '../assets/assetLoader';
 
 export enum PetState {
   AtNpcBase = 'AT_NPC_BASE',
@@ -17,6 +19,9 @@ export class Pet extends Phaser.GameObjects.Sprite {
 
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly prototypeVisual: PetDefinition['prototypeVisual'];
+  private readonly visualScaleX: number;
+  private readonly visualScaleY: number;
+  private readonly flipAllowed: boolean;
   private petState = PetState.AtNpcBase;
   private idleAnchor: Phaser.Math.Vector2;
   private lastBreadcrumbSequence: number | null = null;
@@ -29,12 +34,15 @@ export class Pet extends Phaser.GameObjects.Sprite {
     y: number,
     definition: PetDefinition,
   ) {
-    super(scene, x, y, definition.visualKey);
+    const assetDefinition = PET_ASSETS[definition.id as PetId];
+    const texture = resolveVisualTexture(scene, assetDefinition);
+    super(scene, x + assetDefinition.offsetX, y + assetDefinition.offsetY, texture.textureKey);
 
     this.petId = definition.id as PetId;
     this.displayName = definition.displayName;
     this.incomePerSecond = definition.incomePerSecond;
     this.prototypeVisual = definition.prototypeVisual;
+    this.flipAllowed = texture.production && assetDefinition.flipAllowed;
     this.idleAnchor = new Phaser.Math.Vector2(x, y);
     this.shadow = scene.add.ellipse(
       x,
@@ -45,8 +53,14 @@ export class Pet extends Phaser.GameObjects.Sprite {
       0.24,
     );
     scene.add.existing(this);
-    this.setOrigin(0.5, 0.7);
-    this.setScale(this.getIdleScale(false));
+    if (texture.production) {
+      applyAssetDisplay(this, assetDefinition);
+    } else {
+      this.setOrigin(0.5, 0.7);
+    }
+    this.visualScaleX = this.scaleX;
+    this.visualScaleY = this.scaleY;
+    this.applyVisualScale(this.getIdleScale(false));
     this.updateDepth();
   }
 
@@ -75,7 +89,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.petState = PetState.FollowingPlayer;
     this.lastBreadcrumbSequence = null;
     this.nextIncomeFeedbackAt = Number.POSITIVE_INFINITY;
-    this.setScale(1.08);
+    this.applyVisualScale(1.08);
   }
 
   public returnToNpcBase(position: Phaser.Math.Vector2): void {
@@ -83,7 +97,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.lastBreadcrumbSequence = null;
     this.idleAnchor = position.clone();
     this.setPosition(position.x, position.y);
-    this.setScale(this.getIdleScale(false));
+    this.applyVisualScale(this.getIdleScale(false));
     this.clearTint();
     this.nextIncomeFeedbackAt = Number.POSITIVE_INFINITY;
     this.updateDepth();
@@ -94,7 +108,7 @@ export class Pet extends Phaser.GameObjects.Sprite {
     this.lastBreadcrumbSequence = null;
     this.idleAnchor = position.clone();
     this.setPosition(position.x, position.y);
-    this.setScale(this.getIdleScale(true));
+    this.applyVisualScale(this.getIdleScale(true));
     this.setTint(this.getBaseTint());
     this.nextIncomeFeedbackAt =
       this.scene.time.now + 1200 + Math.abs(this.prototypeVisual.idlePhase) * 380;
@@ -184,6 +198,9 @@ export class Pet extends Phaser.GameObjects.Sprite {
 
       this.x += Math.cos(angle) * step;
       this.y += Math.sin(angle) * step;
+      if (this.flipAllowed && Math.abs(Math.cos(angle)) > 0.08) {
+        this.setFlipX(Math.cos(angle) < 0);
+      }
       this.setRotation(Math.sin(angle) * 0.08);
       return;
     }
@@ -202,9 +219,12 @@ export class Pet extends Phaser.GameObjects.Sprite {
     const scalePulse = visual.idleScalePulse ?? 0;
     if (scalePulse > 0) {
       const squash = Math.sin(time / visual.idleRotationPeriodMs + visual.idlePhase) * scalePulse;
-      this.setScale(baseScale * (1 + squash), baseScale * (1 - squash * 0.35));
+      this.setScale(
+        this.visualScaleX * baseScale * (1 + squash),
+        this.visualScaleY * baseScale * (1 - squash * 0.35),
+      );
     } else {
-      this.setScale(baseScale);
+      this.applyVisualScale(baseScale);
     }
     this.setRotation(
       Math.sin(time / visual.idleRotationPeriodMs + visual.idlePhase) *
@@ -220,6 +240,13 @@ export class Pet extends Phaser.GameObjects.Sprite {
 
   private getBaseTint(): number {
     return this.prototypeVisual.playerBaseTint;
+  }
+
+  private applyVisualScale(multiplier: number): void {
+    this.setScale(
+      this.visualScaleX * multiplier,
+      this.visualScaleY * multiplier,
+    );
   }
 
   private updateDepth(): void {

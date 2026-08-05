@@ -2,12 +2,17 @@ import Phaser from 'phaser';
 
 import { PLAYER_CONFIG } from '../config/gameplay';
 import { DashChargeController } from '../systems/DashChargeController';
+import { PLAYER_ASSET } from '../assets/assetManifest';
+import { applyAssetDisplay, resolveVisualTexture } from '../assets/assetLoader';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly directionMarker: Phaser.GameObjects.Triangle;
   private readonly lastDirection = new Phaser.Math.Vector2(0, -1);
   private readonly dashDirection = new Phaser.Math.Vector2(0, -1);
+  private readonly visualScaleX: number;
+  private readonly visualScaleY: number;
+  private readonly productionVisual: boolean;
 
   private dashEndsAt = 0;
   private nextTrailAt = 0;
@@ -17,7 +22,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   );
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'player');
+    const texture = resolveVisualTexture(scene, PLAYER_ASSET);
+    super(scene, x + PLAYER_ASSET.offsetX, y + PLAYER_ASSET.offsetY, texture.textureKey);
+    this.productionVisual = texture.production;
 
     this.shadow = scene.add.ellipse(x, y + 22, 42, 17, 0x18324a, 0.28);
     this.directionMarker = scene.add.triangle(x, y, 0, -7, 6, 6, -6, 6, 0xffffff, 0.95);
@@ -25,11 +32,23 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setOrigin(0.5, 0.62);
+    if (texture.production) {
+      applyAssetDisplay(this, PLAYER_ASSET);
+      this.directionMarker.setVisible(false);
+    } else {
+      this.setOrigin(0.5, 0.62);
+    }
+    this.visualScaleX = this.scaleX;
+    this.visualScaleY = this.scaleY;
     this.setCollideWorldBounds(true);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setCircle(PLAYER_CONFIG.radius, 7, 10);
+    const colliderCenterYOffset = -7;
+    body.setCircle(
+      PLAYER_CONFIG.radius,
+      this.displayWidth / 2 - PLAYER_CONFIG.radius,
+      this.originY * this.displayHeight + colliderCenterYOffset - PLAYER_CONFIG.radius,
+    );
     body.setMaxVelocity(PLAYER_CONFIG.dashSpeed, PLAYER_CONFIG.dashSpeed);
   }
 
@@ -42,6 +61,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     if (movement.lengthSq() > 0) {
       this.lastDirection.copy(movement).normalize();
+      if (this.productionVisual && Math.abs(movement.x) > 0.05) {
+        this.setFlipX(movement.x < 0);
+      }
     }
 
     if (
@@ -62,13 +84,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(direction.x * speed, direction.y * speed);
 
     if (isDashing) {
-      this.setScale(1.16, 0.88);
+      this.setScale(this.visualScaleX * 1.16, this.visualScaleY * 0.88);
       if (time >= this.nextTrailAt) {
         this.createDashTrail();
         this.nextTrailAt = time + PLAYER_CONFIG.trailIntervalMs;
       }
     } else {
-      this.setScale(1);
+      this.setScale(this.visualScaleX, this.visualScaleY);
     }
 
     this.updateVisuals();
